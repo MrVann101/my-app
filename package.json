@@ -6,12 +6,25 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify:schema": "node scripts/verify-schema.mjs",
+    "verify:rls": "node scripts/verify-rls.mjs",
+    "verify:live-schema": "node scripts/verify-live-schema.mjs",
+    "verify:food-log": "node scripts/verify-food-log.mjs",
+    "verify:ai-cap": "node scripts/verify-ai-cap.mjs",
+    "verify:global-ai-limit": "node scripts/verify-global-ai-limit.mjs",
+    "verify:ai-text-cap": "node scripts/verify-ai-text-cap.mjs"
+    ,"verify:daily-rollup": "node scripts/verify-daily-rollup.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.6",
+    "@supabase/supabase-js": "^2.115.0",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.6"
   }
 }

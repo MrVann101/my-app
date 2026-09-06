@@ -1,0 +1,10 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "crons": [
+    { "path": "/api/cron/rollup-summaries", "schedule": "15 2 * * *" },
+    { "path": "/api/cron/purge-detailed-logs", "schedule": "30 2 * * *" },
+    { "path": "/api/cron/purge-photos", "schedule": "45 2 * * *" }
+  ]
+}
