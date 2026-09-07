@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiErrorResponse, ApiError, parseJson } from "@/lib/api";
+import { badgesForProgress } from "@/lib/badges";
 import { computeNutrients, foodWeightSchema, nutrientRateSchema } from "@/lib/food";
 import { createClient } from "@/lib/supabase/server";
 import { updateStreak } from "@/lib/streaks";
@@ -53,10 +54,23 @@ export async function POST(request: Request) {
     if (error) throw new ApiError(400, error.message, "food_log_save_failed");
     const timezone = await refreshDailySummary(supabase, user.id, body.logDate);
     if (body.logDate === localDate(timezone)) await refreshStreak(supabase, user.id, body.logDate);
+    await awardBadges(supabase, user.id);
     return Response.json({ log }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }
+}
+
+async function awardBadges(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+  const [{ count, error: countError }, { data: streak, error: streakError }] = await Promise.all([
+    supabase.from("food_logs").select("id", { count: "exact", head: true }).eq("user_id", userId),
+    supabase.from("streaks").select("current_streak").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (countError || streakError) throw new ApiError(400, "Unable to update badges.", "badge_award_failed");
+  const candidates = badgesForProgress(count ?? 0, Number(streak?.current_streak ?? 0));
+  if (candidates.length === 0) return;
+  const { error } = await supabase.from("badges").upsert(candidates.map((badge) => ({ user_id: userId, badge_key: badge.badgeKey })), { onConflict: "user_id,badge_key", ignoreDuplicates: true });
+  if (error) throw new ApiError(400, error.message, "badge_award_failed");
 }
 
 export async function GET(request: Request) {

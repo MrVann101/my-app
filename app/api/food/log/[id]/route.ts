@@ -10,15 +10,15 @@ type Context = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, context: Context) {
   try {
-    const supabase = await authenticatedClient();
+    const { supabase, user } = await authenticatedClient();
     const { id } = await context.params;
     const logId = parseId(id);
     const body = updateSchema.parse(await request.json());
-    const { data: existing, error: existingError } = await supabase.from("food_logs").select("id, log_date").eq("id", logId).maybeSingle();
+    const { data: existing, error: existingError } = await supabase.from("food_logs").select("id, log_date").eq("id", logId).eq("user_id", user.id).maybeSingle();
     if (existingError) throw new ApiError(400, existingError.message, "food_log_fetch_failed");
     if (!existing) throw new ApiError(404, "Food log not found.", "food_log_not_found");
 
-    const { data: log, error } = await supabase.from("food_logs").update({ weight_g: body.weightG }).eq("id", logId).select().single();
+    const { data: log, error } = await supabase.from("food_logs").update({ weight_g: body.weightG }).eq("id", logId).eq("user_id", user.id).select().single();
     if (error) throw new ApiError(400, error.message, "food_log_update_failed");
     await refreshSummaryAndStreak(supabase, existing.log_date);
     return Response.json({ log });
@@ -29,14 +29,14 @@ export async function PATCH(request: Request, context: Context) {
 
 export async function DELETE(_request: Request, context: Context) {
   try {
-    const supabase = await authenticatedClient();
+    const { supabase, user } = await authenticatedClient();
     const { id } = await context.params;
     const logId = parseId(id);
-    const { data: existing, error: existingError } = await supabase.from("food_logs").select("id, log_date").eq("id", logId).maybeSingle();
+    const { data: existing, error: existingError } = await supabase.from("food_logs").select("id, log_date").eq("id", logId).eq("user_id", user.id).maybeSingle();
     if (existingError) throw new ApiError(400, existingError.message, "food_log_fetch_failed");
     if (!existing) throw new ApiError(404, "Food log not found.", "food_log_not_found");
 
-    const { error } = await supabase.from("food_logs").delete().eq("id", logId);
+    const { error } = await supabase.from("food_logs").delete().eq("id", logId).eq("user_id", user.id);
     if (error) throw new ApiError(400, error.message, "food_log_delete_failed");
     await refreshSummaryAndStreak(supabase, existing.log_date);
     return Response.json({ deleted: true });
@@ -49,7 +49,7 @@ async function authenticatedClient() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new ApiError(401, "Authentication is required.", "unauthorized");
-  return supabase;
+  return { supabase, user };
 }
 
 function parseId(value: string): number {
@@ -62,8 +62,8 @@ async function refreshSummaryAndStreak(supabase: Awaited<ReturnType<typeof creat
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new ApiError(401, "Authentication is required.", "unauthorized");
   const [{ data: logs, error: logsError }, { data: exercises, error: exerciseError }, { data: profile }] = await Promise.all([
-    supabase.from("food_logs").select("calories, protein_g, carbs_g, fat_g, fiber_g, sodium_mg, sugar_g").eq("log_date", logDate),
-    supabase.from("exercise_logs").select("calories_burned").eq("log_date", logDate),
+    supabase.from("food_logs").select("calories, protein_g, carbs_g, fat_g, fiber_g, sodium_mg, sugar_g").eq("user_id", user.id).eq("log_date", logDate),
+    supabase.from("exercise_logs").select("calories_burned").eq("user_id", user.id).eq("log_date", logDate),
     supabase.from("profiles").select("target_calories").eq("user_id", user.id).maybeSingle(),
   ]);
   if (logsError || exerciseError) throw new ApiError(400, "Unable to refresh daily totals.", "summary_refresh_failed");

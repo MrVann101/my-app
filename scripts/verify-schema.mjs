@@ -16,6 +16,8 @@ const migrationNames = [
   "0010_fork_meal_plan.sql",
   "0011_public_plan_deletion_visibility.sql",
   "0012_public_plan_profile_check.sql",
+  "0013_recalibration.sql",
+  "0014_notification_preferences.sql",
 ];
 const sql = (await Promise.all(migrationNames.map((name) => readFile(join(root, name), "utf8")))).join("\n");
 
@@ -32,6 +34,8 @@ const tables = {
   favorite_foods: ["id", "user_id", "food_name", "default_weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "use_count", "created_at"],
   badges: ["id", "user_id", "badge_key", "earned_at"],
   custom_foods: ["id", "user_id", "food_name", "label_source", "default_weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "label_calories", "label_weight_g", "created_at"],
+  recalibration_states: ["user_id", "state", "recommended_calories", "updated_at"],
+  notification_preferences: ["user_id", "email_enabled", "frequency", "reminder_time", "timezone", "updated_at"],
 };
 
 for (const [table, columns] of Object.entries(tables)) {

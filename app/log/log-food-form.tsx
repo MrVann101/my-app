@@ -3,13 +3,39 @@
 import { FormEvent, useMemo, useState } from "react";
 import { computeNutrients, getWeightWarning } from "@/lib/food";
 import type { NutrientRate } from "@/lib/types";
-import FoodSearch, { type SearchResult } from "./food-search";
 
-const emptyRate: NutrientRate = { caloriesPerG: 0, proteinPerG: 0, carbsPerG: 0, fatPerG: 0, fiberPerG: 0, sodiumPerG: 0, sugarPerG: 0 };
+const emptyRate: NutrientRate = {
+  caloriesPerG: 0,
+  proteinPerG: 0,
+  carbsPerG: 0,
+  fatPerG: 0,
+  fiberPerG: 0,
+  sodiumPerG: 0,
+  sugarPerG: 0,
+};
+
+const SMART_FOOD_RATES: Record<string, number> = {
+  chicken: 2.2,
+  "fried chicken": 2.4,
+  "chicken breast": 1.65,
+  egg: 1.55,
+  "boiled egg": 1.55,
+  rice: 1.3,
+  "white rice": 1.3,
+  apple: 0.52,
+  banana: 0.89,
+  pizza: 2.66,
+  salmon: 2.08,
+  steak: 2.5,
+  bread: 2.65,
+  toast: 2.65,
+  burger: 2.5,
+  salad: 0.4,
+  milk: 0.6,
+  oats: 3.89,
+};
 
 export default function LogFoodForm() {
-  const [selected, setSelected] = useState<SearchResult | null>(null);
-  const [mode, setMode] = useState<"search" | "manual">("search");
   const [foodName, setFoodName] = useState("");
   const [weightG, setWeightG] = useState(100);
   const [mealType, setMealType] = useState("snack");
@@ -19,50 +45,236 @@ export default function LogFoodForm() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
 
-  const effectiveRate = useMemo(() => mode === "manual" ? { ...rate, caloriesPerG: labelWeightG > 0 ? labelCalories / labelWeightG : 0 } : rate, [labelCalories, labelWeightG, mode, rate]);
+  const effectiveRate = useMemo(
+    () => ({
+      ...rate,
+      caloriesPerG: labelWeightG > 0 ? labelCalories / labelWeightG : 0,
+    }),
+    [labelCalories, labelWeightG, rate]
+  );
+
   const computed = useMemo(() => computeNutrients(weightG, effectiveRate), [effectiveRate, weightG]);
   const weightWarning = getWeightWarning(weightG);
 
-  function chooseFood(result: SearchResult) {
-    setSelected(result);
-    setFoodName(result.foodName);
-    setWeightG(result.defaultWeightG);
-    setRate(result.nutrientRate);
-    setSaved(null);
+  function handleFoodNameChange(name: string) {
+    setFoodName(name);
+    const lower = name.trim().toLowerCase();
+    const matchedRate = SMART_FOOD_RATES[lower];
+    if (matchedRate) {
+      setLabelWeightG(100);
+      setLabelCalories(Math.round(matchedRate * 100));
+      setRate((prev) => ({ ...prev, caloriesPerG: matchedRate }));
+    }
   }
 
-  function switchMode(nextMode: "search" | "manual") {
-    setMode(nextMode);
-    setSelected(null);
-    setFoodName("");
-    setRate(emptyRate);
-    setLabelCalories(0);
-    setLabelWeightG(100);
-    setSaved(null);
+  function adjustWeight(delta: number) {
+    setWeightG((prev) => Math.max(1, Math.min(100000, prev + delta)));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSaved(null);
+
     const response = await fetch("/api/food/log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ logDate: new Date().toISOString().slice(0, 10), mealType, foodName, weightG, nutrientRate: effectiveRate, source: selected ? "database" : "manual", dataSource: selected?.dataSource ?? null, aiConfidence: null }),
+      body: JSON.stringify({
+        logDate: new Date().toISOString().slice(0, 10),
+        mealType,
+        foodName,
+        weightG,
+        nutrientRate: effectiveRate,
+        source: "manual",
+        dataSource: null,
+        aiConfidence: null,
+      }),
     });
+
     const payload = await response.json();
     if (!response.ok) {
       setError(payload.error?.message ?? "Unable to save this food log.");
       return;
     }
-    setSaved(`${foodName} added: ${Math.round(computed.calories)} kcal.`);
+
+    setSaved(`✓ Successfully logged "${foodName}" (${Math.round(computed.calories)} kcal) to today's journal!`);
+
+    // Reset Form state after logging
     setFoodName("");
-    setSelected(null);
+    setRate(emptyRate);
+    setLabelCalories(0);
+    setLabelWeightG(100);
+    setWeightG(100);
   }
 
-  return <div className="space-y-6">
-    <div className="flex rounded-xl bg-[var(--surface-muted)] p-1 text-sm font-medium"><button className={`flex-1 rounded-lg px-3 py-2 ${mode === "search" ? "bg-[var(--surface)]" : "text-[var(--ink-muted)]"}`} onClick={() => switchMode("search")} type="button">Database search</button><button className={`flex-1 rounded-lg px-3 py-2 ${mode === "manual" ? "bg-[var(--surface)]" : "text-[var(--ink-muted)]"}`} onClick={() => switchMode("manual")} type="button">Manual/custom</button></div>
-    {mode === "search" ? <FoodSearch onSelect={chooseFood} /> : <div className="rounded-2xl bg-[var(--surface-muted)] p-4"><label className="block text-sm font-medium">Food name<input className="mt-2 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3" value={foodName} onChange={(event) => setFoodName(event.target.value)} required /></label><p className="mt-3 text-xs leading-5 text-[var(--ink-muted)]">Enter the calories and weight shown together on the label once. Bitewise derives the rate and recalculates future portions from weight.</p><div className="mt-4 grid grid-cols-2 gap-3"><label className="text-xs font-medium">Label calories<input className="mt-1 h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2" min="0" step="1" type="number" value={labelCalories} onChange={(event) => setLabelCalories(Number(event.target.value))} /></label><label className="text-xs font-medium">Label weight (g)<input className="mt-1 h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2" min="1" step="1" type="number" value={labelWeightG} onChange={(event) => setLabelWeightG(Number(event.target.value))} /></label>{(["proteinPerG", "carbsPerG", "fatPerG"] as const).map((key) => <label className="text-xs font-medium" key={key}>{key.replace("PerG", " / g")}<input className="mt-1 h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2" min="0" step="0.001" type="number" value={rate[key]} onChange={(event) => setRate({ ...rate, [key]: Number(event.target.value) })} /></label>)}</div></div>}
-    <form className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4" onSubmit={handleSubmit}><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-medium">Portion weight (g)<input className="mt-2 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-3" min="1" max="100000" step="1" type="number" value={weightG} onChange={(event) => setWeightG(Number(event.target.value))} required />{weightWarning && <span className="mt-2 block text-xs font-normal text-[var(--sun)]">{weightWarning}</span>}</label><label className="text-sm font-medium">Meal<select className="mt-2 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-3" value={mealType} onChange={(event) => setMealType(event.target.value)}><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="snack">Snack</option></select></label></div><div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs"><div className="rounded-xl bg-[var(--surface-muted)] p-3"><strong className="block text-base">{Math.round(computed.calories)}</strong>kcal</div><div className="rounded-xl bg-[var(--surface-muted)] p-3"><strong className="block text-base">{Math.round(computed.proteinG)}g</strong>protein</div><div className="rounded-xl bg-[var(--surface-muted)] p-3"><strong className="block text-base">{effectiveRate.caloriesPerG.toFixed(2)}</strong>cal/g</div></div>{error && <p className="mt-4 text-sm text-[var(--coral)]" role="alert">{error}</p>}{saved && <p className="mt-4 text-sm text-[var(--leaf)]" role="status">{saved}</p>}<button className="mt-5 h-12 w-full rounded-xl bg-[var(--leaf)] font-semibold text-white disabled:opacity-50" disabled={!foodName || effectiveRate.caloriesPerG <= 0} type="submit">Log food</button></form>
-  </div>;
+  async function saveFavorite() {
+    setError(null);
+    const response = await fetch("/api/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ foodName, defaultWeightG: weightG, nutrientRate: effectiveRate }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      setError(payload.error?.message ?? "Unable to save favorite.");
+      return;
+    }
+    setSaved(`⭐ Saved "${payload.favorite.food_name}" as a favorite.`);
+  }
+
+  return (
+    <div className="space-y-6">
+      {saved && (
+        <div className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-deep)]" role="status">
+          {saved}
+        </div>
+      )}
+
+      {/* Food Input Details Card */}
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-5 space-y-4">
+        <label className="block text-xs font-bold uppercase text-[var(--ink-muted)]">
+          Food Name
+          <input
+            className="mt-1.5 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--leaf)]"
+            placeholder="e.g. Fried Chicken, White Rice, Boiled Egg..."
+            value={foodName}
+            onChange={(event) => handleFoodNameChange(event.target.value)}
+            required
+          />
+        </label>
+        <p className="text-xs text-[var(--ink-muted)]">
+          Smart rates automatically populate for common foods (e.g. Fried Chicken = 2.4 cal/g), or enter total calories & weight below.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-xs font-semibold text-[var(--ink-muted)]">
+            Calories per Portion
+            <input
+              className="mt-1 h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-bold"
+              min="0"
+              step="1"
+              type="number"
+              value={labelCalories}
+              onChange={(event) => setLabelCalories(Number(event.target.value))}
+            />
+          </label>
+          <label className="text-xs font-semibold text-[var(--ink-muted)]">
+            Base Weight (g)
+            <input
+              className="mt-1 h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-bold"
+              min="1"
+              step="1"
+              type="number"
+              value={labelWeightG}
+              onChange={(event) => setLabelWeightG(Number(event.target.value))}
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* Portion Weight & Meal Form */}
+      <form className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 space-y-5 shadow-xs" onSubmit={handleSubmit}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-bold uppercase text-[var(--ink-muted)]">Portion Weight (g)</label>
+            <div className="mt-1.5 flex items-center gap-2">
+              <input
+                className="tabular-nums h-11 min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--background)] px-3 text-base font-bold outline-none focus:border-[var(--leaf)]"
+                min="1"
+                max="100000"
+                step="1"
+                type="number"
+                value={weightG}
+                onChange={(event) => setWeightG(Number(event.target.value))}
+                required
+              />
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => adjustWeight(-10)}
+                  className="active-press grid size-10 place-items-center rounded-lg border border-[var(--line)] bg-[var(--surface-muted)] text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
+                  title="Decrease 10g"
+                >
+                  -10
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adjustWeight(10)}
+                  className="active-press grid size-10 place-items-center rounded-lg border border-[var(--line)] bg-[var(--surface-muted)] text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
+                  title="Increase 10g"
+                >
+                  +10
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adjustWeight(50)}
+                  className="active-press grid size-10 place-items-center rounded-lg border border-[var(--line)] bg-[var(--surface-muted)] text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
+                  title="Increase 50g"
+                >
+                  +50
+                </button>
+              </div>
+            </div>
+            {weightWarning && <span className="mt-1.5 block text-xs font-semibold text-[var(--sun)]">{weightWarning}</span>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-[var(--ink-muted)]">Meal Event</label>
+            <select
+              className="mt-1.5 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold outline-none focus:border-[var(--leaf)]"
+              value={mealType}
+              onChange={(event) => setMealType(event.target.value)}
+            >
+              <option value="breakfast">Breakfast</option>
+              <option value="lunch">Lunch</option>
+              <option value="dinner">Dinner</option>
+              <option value="snack">Snack</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Live Computed Nutrients Preview */}
+        <div className="grid grid-cols-3 gap-2.5 rounded-xl bg-[var(--surface-muted)] p-3 text-center">
+          <div>
+            <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Calories</span>
+            <strong className="tabular-nums block text-xl font-extrabold text-[var(--foreground)]">
+              {Math.round(computed.calories)}
+            </strong>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Protein</span>
+            <strong className="tabular-nums block text-xl font-extrabold text-[var(--leaf)]">
+              {Math.round(computed.proteinG)}g
+            </strong>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Rate</span>
+            <strong className="tabular-nums block text-xl font-extrabold text-[var(--ink-muted)]">
+              {effectiveRate.caloriesPerG.toFixed(2)} <span className="text-[10px]">cal/g</span>
+            </strong>
+          </div>
+        </div>
+
+        {error && <p className="text-xs font-bold text-[var(--coral)]" role="alert">{error}</p>}
+
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <button
+            className="active-press h-12 rounded-xl bg-[var(--leaf)] text-sm font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+            disabled={!foodName || effectiveRate.caloriesPerG <= 0}
+            type="submit"
+          >
+            Log to Today&apos;s Journal
+          </button>
+          <button
+            className="active-press h-12 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-sm font-bold text-[var(--leaf)] shadow-2xs hover:bg-[var(--surface-muted)] disabled:opacity-50"
+            disabled={!foodName || effectiveRate.caloriesPerG <= 0}
+            onClick={() => void saveFavorite()}
+            type="button"
+          >
+            ⭐ Save as Favorite
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }

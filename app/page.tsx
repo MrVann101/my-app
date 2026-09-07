@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -8,10 +10,10 @@ export default function Home() {
             <span className="text-lg font-semibold tracking-tight">bitewise</span>
           </div>
           <nav className="mt-16 space-y-2 text-sm font-medium" aria-label="Primary navigation">
-            <a className="block rounded-xl bg-[#e4efe4] px-4 py-3 text-[var(--leaf-deep)]" href="#today">Today</a>
-            <a className="block rounded-xl px-4 py-3 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]" href="#log">Log food</a>
-            <a className="block rounded-xl px-4 py-3 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]" href="#plans">Meal plans</a>
-            <a className="block rounded-xl px-4 py-3 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]" href="#profile">Profile</a>
+            <Link className="block rounded-xl bg-[#e4efe4] px-4 py-3 text-[var(--leaf-deep)]" href="/dashboard">Today</Link>
+            <Link className="block rounded-xl px-4 py-3 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]" href="/log">Log food</Link>
+            <Link className="block rounded-xl px-4 py-3 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]" href="/meal-plans">Meal plans</Link>
+            <Link className="block rounded-xl px-4 py-3 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]" href="/profile">Profile</Link>
           </nav>
           <p className="mt-auto pt-48 text-xs leading-5 text-[var(--ink-muted)]">Nutrition estimates are for tracking, not medical advice.</p>
         </aside>
@@ -23,7 +25,7 @@ export default function Home() {
               <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Good morning, Alex.</h1>
               <p className="mt-2 text-sm text-[var(--ink-muted)]">A clear view of today, one meal at a time.</p>
             </div>
-            <button className="grid size-11 place-items-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-sm font-semibold shadow-sm" aria-label="Open profile">A</button>
+            <Link className="grid size-11 place-items-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-sm font-semibold shadow-sm" aria-label="Open profile" href="/profile">A</Link>
           </header>
 
           <section id="today" className="mt-8 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
@@ -57,14 +59,14 @@ export default function Home() {
               <div className="mt-4 grid grid-cols-7 gap-2">{["M", "T", "W", "T", "F", "S", "S"].map((day, index) => <div key={`${day}-${index}`} className="text-center"><div className={`mx-auto grid size-8 place-items-center rounded-full text-xs ${index < 6 ? "bg-[#dcebdc] text-[var(--leaf-deep)]" : "border border-dashed border-[var(--line)] text-[var(--ink-muted)]"}`}>{index < 6 ? "✓" : "·"}</div><span className="mt-2 block text-[10px] text-[var(--ink-muted)]">{day}</span></div>)}</div>
             </div>
             <div id="log" className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-8">
-              <div className="flex items-center justify-between"><div><p className="font-semibold">Today&apos;s meals</p><p className="mt-1 text-sm text-[var(--ink-muted)]">Nothing logged for dinner yet.</p></div><button className="rounded-full bg-[var(--leaf)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--leaf-deep)]">+ Log food</button></div>
+              <div className="flex items-center justify-between"><div><p className="font-semibold">Today&apos;s meals</p><p className="mt-1 text-sm text-[var(--ink-muted)]">Nothing logged for dinner yet.</p></div><Link className="rounded-full bg-[var(--leaf)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--leaf-deep)]" href="/log">+ Log food</Link></div>
               <div className="mt-6 border-t border-[var(--line)] pt-5 text-sm"><div className="flex items-center justify-between"><span className="text-[var(--ink-muted)]">Breakfast</span><span className="font-medium">420 kcal</span></div><div className="mt-4 flex items-center justify-between"><span className="text-[var(--ink-muted)]">Lunch</span><span className="font-medium">390 kcal</span></div></div>
             </div>
           </section>
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-[var(--line)] bg-[var(--surface)]/95 px-6 py-3 backdrop-blur md:hidden" aria-label="Mobile navigation"><div className="mx-auto flex max-w-md justify-between text-center text-[11px] font-medium text-[var(--ink-muted)]"><a className="text-[var(--leaf)]" href="#today"><span className="block text-lg">⌂</span>Today</a><a href="#log"><span className="block text-lg">+</span>Log</a><a href="#plans"><span className="block text-lg">▦</span>Plans</a><a href="#profile"><span className="block text-lg">○</span>Profile</a></div></nav>
+      <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-[var(--line)] bg-[var(--surface)]/95 px-6 py-3 backdrop-blur md:hidden" aria-label="Mobile navigation"><div className="mx-auto flex max-w-md justify-between text-center text-[11px] font-medium text-[var(--ink-muted)]"><Link className="text-[var(--leaf)]" href="/dashboard"><span className="block text-lg">⌂</span>Today</Link><Link href="/log"><span className="block text-lg">+</span>Log</Link><Link href="/meal-plans"><span className="block text-lg">▦</span>Plans</Link><Link href="/profile"><span className="block text-lg">○</span>Profile</Link></div></nav>
     </div>
   );
 }

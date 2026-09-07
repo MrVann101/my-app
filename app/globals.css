@@ -1,37 +1,100 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f2;
-  --foreground: #17211b;
+  --background: #eef7ff;
+  --foreground: #0f172a;
   --surface: #ffffff;
-  --surface-muted: #edf1e9;
-  --line: #dce4d8;
-  --ink-muted: #68756b;
-  --leaf: #2f6f4e;
-  --leaf-deep: #1e4d36;
-  --sun: #e6a83b;
-  --coral: #d96d52;
+  --surface-muted: #f0f7ff;
+  --line: #bae6fd;
+  --ink-muted: #64748b;
+  --leaf: #0284c7;
+  --leaf-deep: #0369a1;
+  --leaf-light: #e0f2fe;
+  --sun: #0ea5e9;
+  --coral: #ef4444;
+}
+
+:root[data-theme="dark"] {
+  --background: #0b1320;
+  --foreground: #f8fafc;
+  --surface: #152033;
+  --surface-muted: #1e2d4a;
+  --line: #263a5e;
+  --ink-muted: #94a3b8;
+  --leaf: #38bdf8;
+  --leaf-deep: #0284c7;
+  --leaf-light: #163654;
+  --sun: #38bdf8;
+  --coral: #f87171;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --background: #0b1320;
+    --foreground: #f8fafc;
+    --surface: #152033;
+    --surface-muted: #1e2d4a;
+    --line: #263a5e;
+    --ink-muted: #94a3b8;
+    --leaf: #38bdf8;
+    --leaf-deep: #0284c7;
+    --leaf-light: #163654;
+    --sun: #38bdf8;
+    --coral: #f87171;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-hanken-grotesk);
   --font-mono: var(--font-geist-mono);
 }
 
+html,
 body {
+  min-height: 100dvh;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), sans-serif;
+  font-family: var(--font-hanken-grotesk), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
-a {
+a,
+input,
+select {
   -webkit-tap-highlight-color: transparent;
 }
 
+.tabular-nums {
+  font-family: var(--font-geist-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.active-press {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.active-press:active {
+  transform: scale(0.98);
+}
+
+:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 ::selection {
-  background: #c8dfc8;
+  background: var(--leaf-light);
   color: var(--leaf-deep);
 }

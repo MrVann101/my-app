@@ -43,6 +43,18 @@ Initial deployment smoke check:
 1. Open the deployed app shell.
 2. Confirm the browser receives no server-only environment variable values.
 3. Confirm protected routes reject unauthenticated requests once they exist.
+4. Open the app at phone, tablet, and desktop widths; confirm bottom navigation, forms, charts, and cards do not overflow.
+5. Confirm `/api/cron/rollup-summaries`, `/api/cron/purge-detailed-logs`, `/api/cron/purge-photos`, `/api/cron/process-deletions`, and `/api/cron/deletion-reminders` return `401` without the configured `CRON_SECRET`.
+6. Confirm the same cron routes succeed from Vercel Cron and appear in Vercel function logs.
+7. Confirm the `food-photos` Storage bucket exists and the production Supabase migrations are applied through `0014_notification_preferences.sql`.
+8. Sign in with a test account, verify onboarding, food logging, meal-plan logging, CSV export, deletion cancellation, and notification preference changes.
+9. Switch the browser offline and confirm the offline banner appears and save actions report that writes are paused.
+
+Automated local smoke check (start the app first):
+
+```bash
+BITEWISE_TEST_BASE_URL=http://localhost:3100 npm run smoke:check
+```
 
 ## Project references
 

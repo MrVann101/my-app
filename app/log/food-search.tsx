@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import type { NutrientRate } from "@/lib/types";
+import { IconSearch } from "@/components/icons";
 
 export type SearchResult = {
   providerId: string;
@@ -12,10 +13,17 @@ export type SearchResult = {
   dataSource: "usda" | "off";
 };
 
-export default function FoodSearch({ onSelect }: { onSelect: (result: SearchResult) => void }) {
+export default function FoodSearch({
+  onSelect,
+  onAdd,
+  selectedResult,
+}: {
+  onSelect: (result: SearchResult | null) => void;
+  onAdd?: (result: SearchResult) => void;
+  selectedResult?: SearchResult | null;
+}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [selected, setSelected] = useState<SearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -24,7 +32,7 @@ export default function FoodSearch({ onSelect }: { onSelect: (result: SearchResu
     if (query.trim().length < 2) return;
     setIsSearching(true);
     setError(null);
-    setSelected(null);
+    onSelect(null);
     const response = await fetch(`/api/food/search?q=${encodeURIComponent(query.trim())}`);
     const payload = await response.json();
     setIsSearching(false);
@@ -35,17 +43,120 @@ export default function FoodSearch({ onSelect }: { onSelect: (result: SearchResu
     setResults(payload.results);
   }
 
+  function handleClear() {
+    setQuery("");
+    setResults([]);
+    setError(null);
+    onSelect(null);
+  }
+
+  function handleAddResult(result: SearchResult) {
+    if (onAdd) {
+      onAdd(result);
+      setQuery("");
+      setResults([]);
+      setError(null);
+    } else {
+      onSelect(result);
+    }
+  }
+
   return (
-    <div className="space-y-5">
-      <form className="flex gap-3" onSubmit={handleSearch}>
-        <label className="sr-only" htmlFor="food-search">Search foods</label>
-        <input id="food-search" className="h-12 min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--background)] px-4 outline-none focus:border-[var(--leaf)]" placeholder="Try rice, eggs, or yogurt" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <button className="h-12 rounded-xl bg-[var(--leaf)] px-5 font-semibold text-white hover:bg-[var(--leaf-deep)] disabled:opacity-50" disabled={isSearching || query.trim().length < 2} type="submit">{isSearching ? "Searching..." : "Search"}</button>
+    <div className="space-y-4">
+      <form className="flex gap-2 sm:gap-3" onSubmit={handleSearch}>
+        <label className="sr-only" htmlFor="food-search">
+          Search foods
+        </label>
+        <div className="relative flex-1">
+          <input
+            id="food-search"
+            className="h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] pl-4 pr-9 text-sm outline-none transition-colors focus:border-[var(--leaf)]"
+            placeholder="Search food name (e.g. chicken, rice, egg)..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-3 top-3 text-xs font-bold text-[var(--ink-muted)] hover:text-[var(--foreground)]"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <button
+          className="active-press flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--leaf)] text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+          disabled={isSearching || query.trim().length < 2}
+          type="submit"
+          title="Search food database"
+          aria-label="Search food database"
+        >
+          <IconSearch className="size-5" />
+        </button>
       </form>
-      {error && <p className="text-sm text-[var(--coral)]" role="alert">{error}</p>}
-      {results.length === 0 && !isSearching && <p className="rounded-xl bg-[var(--surface-muted)] px-4 py-4 text-sm text-[var(--ink-muted)]">Search the food database to start with a verified serving estimate.</p>}
-      <div className="space-y-3">{results.map((result) => <button className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-colors ${selected?.providerId === result.providerId ? "border-[var(--leaf)] bg-[#eef7ee]" : "border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-muted)]"}`} key={`${result.dataSource}-${result.providerId}`} onClick={() => { setSelected(result); onSelect(result); }} type="button"><span><strong className="block font-semibold">{result.foodName}</strong><span className="mt-1 block text-xs text-[var(--ink-muted)]">{result.brandName || "Generic food"} · {result.dataSource === "usda" ? "USDA" : "Open Food Facts"}</span></span><span className="text-right text-xs text-[var(--ink-muted)]"><strong className="block text-sm text-[var(--foreground)]">{result.defaultWeightG}g</strong>{result.nutrientRate.caloriesPerG.toFixed(2)} cal/g</span></button>)}</div>
-      {selected && <div className="rounded-2xl border border-[#c9dfc9] bg-[#eef7ee] p-4 text-sm text-[var(--leaf-deep)]"><strong>{selected.foodName}</strong> selected at a {selected.defaultWeightG}g starting portion. Calories will be computed from weight, not typed directly.</div>}
+
+      {error && (
+        <p className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-4 text-xs font-semibold text-[var(--coral)]" role="alert">
+          {error}
+        </p>
+      )}
+
+      {results.length > 0 && (
+        <div className="space-y-2.5">
+          {results.map((result) => {
+            const isChosen = selectedResult?.providerId === result.providerId;
+            return (
+              <div
+                key={`${result.dataSource}-${result.providerId}`}
+                className={`flex items-center justify-between rounded-xl border p-3.5 transition-all ${
+                  isChosen
+                    ? "border-[var(--leaf)] bg-[var(--leaf-light)] text-[var(--leaf-deep)] shadow-2xs"
+                    : "border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-muted)]"
+                }`}
+              >
+                <div>
+                  <strong className="block text-sm font-bold text-[var(--foreground)]">{result.foodName}</strong>
+                  <span className="mt-1 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
+                    <span>{result.brandName || "Generic food"}</span>
+                    <span>·</span>
+                    <span className="tabular-nums font-bold text-[var(--leaf)]">
+                      {result.defaultWeightG}g portion
+                    </span>
+                    <span>·</span>
+                    <span className="tabular-nums">
+                      {result.nutrientRate.caloriesPerG.toFixed(2)} cal/g
+                    </span>
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleAddResult(result)}
+                  className="active-press inline-flex items-center justify-center gap-1 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)]"
+                >
+                  <span>+ Add</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedResult && !onAdd && (
+        <div className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-medium text-[var(--leaf-deep)] flex items-center justify-between">
+          <span>
+            ✓ Selected <strong>{selectedResult.foodName}</strong> ({selectedResult.defaultWeightG}g default).
+          </span>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="text-xs font-bold text-[var(--leaf-deep)] underline hover:opacity-80"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,37 +1,149 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import HeaderSearch from "./header-search";
+import {
+  IconDashboard,
+  IconSparkles,
+  IconMealPlans,
+  IconCamera,
+  IconProfile,
+  IconBitewiseLogo,
+} from "./icons";
 
 const navigation = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/log", label: "Log" },
-  { href: "/history", label: "History" },
-  { href: "/meal-plans", label: "Meal Plans" },
-  { href: "/profile", label: "Profile" },
+  { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
+  { href: "/suggestions", label: "AI Suggestions", icon: IconSparkles },
+  { href: "/meal-plans", label: "Meal Plans", icon: IconMealPlans, isCenter: true },
+  { href: "/photo", label: "Photo AI", icon: IconCamera },
+  { href: "/profile", label: "Profile", icon: IconProfile },
 ];
 
-export default function AppShell({ title, eyebrow, children }: { title: string; eyebrow: string; children: ReactNode }) {
+export default function AppShell({
+  title,
+  eyebrow,
+  children,
+}: {
+  title: string;
+  eyebrow: string;
+  children: ReactNode;
+}) {
+  const pathname = usePathname();
+
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <div className="mx-auto flex min-h-screen max-w-7xl">
-        <aside className="hidden w-64 shrink-0 border-r border-[var(--line)] bg-[var(--surface)] px-7 py-8 md:block">
-          <Link className="flex items-center gap-3 text-lg font-semibold tracking-tight" href="/dashboard">
-            <span className="grid size-10 place-items-center rounded-2xl bg-[var(--leaf)] text-lg font-bold text-white">B</span>
-            bitewise
-          </Link>
-          <nav className="mt-16 space-y-2 text-sm font-medium" aria-label="Primary navigation">
-            {navigation.map((item) => <Link className="block rounded-xl px-4 py-3 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]" href={item.href} key={item.href}>{item.label}</Link>)}
-          </nav>
-          <p className="mt-48 text-xs leading-5 text-[var(--ink-muted)]">Nutrition estimates are for tracking, not medical advice.</p>
+    <div className="min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)]">
+      <div className="mx-auto flex min-h-[100dvh] max-w-7xl">
+        {/* Desktop Sidebar */}
+        <aside className="hidden w-64 shrink-0 border-r border-[var(--line)] bg-[var(--surface)] px-6 py-8 md:flex md:flex-col md:justify-between">
+          <div>
+            <Link
+              className="active-press flex items-center gap-3 text-lg font-bold tracking-tight text-[var(--foreground)]"
+              href="/dashboard"
+            >
+              <IconBitewiseLogo className="size-10 shadow-xs" />
+              bitewise
+            </Link>
+            <nav className="mt-12 space-y-1.5 text-sm font-medium" aria-label="Primary navigation">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`active-press flex items-center gap-3.5 rounded-xl px-4 py-3 transition-colors ${
+                      isActive
+                        ? "bg-[var(--leaf-light)] font-semibold text-[var(--leaf)]"
+                        : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
+                    }`}
+                  >
+                    <Icon className={`size-5 ${isActive ? "text-[var(--leaf)]" : "text-[var(--ink-muted)]"}`} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+          <p className="text-xs leading-5 text-[var(--ink-muted)] border-t border-[var(--line)] pt-4">
+            Nutrition estimates are for tracking, not medical advice.
+          </p>
         </aside>
-        <main className="w-full px-5 pb-28 pt-6 sm:px-8 md:px-12 md:pb-12 md:pt-10">
-          <header>
-            <p className="text-sm font-medium text-[var(--leaf)]">{eyebrow}</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
+
+        {/* Main Content Area */}
+        <main className="w-full px-4 pb-28 pt-6 sm:px-8 md:px-10 md:pb-12 md:pt-8">
+          <header className="flex items-center justify-between gap-4 border-b border-[var(--line)]/60 pb-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--leaf)]">{eyebrow}</p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
+                {title}
+              </h1>
+            </div>
+
+            {/* Top Right Quick Search Bar (Dashboard Only) */}
+            {pathname === "/dashboard" && (
+              <div className="flex items-center gap-2">
+                <HeaderSearch />
+              </div>
+            )}
           </header>
-          <div className="mt-8">{children}</div>
+          <div className="mt-6">{children}</div>
         </main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-[var(--line)] bg-[var(--surface)]/95 px-3 py-3 backdrop-blur md:hidden" aria-label="Mobile navigation"><div className="mx-auto flex max-w-md justify-between text-center text-[10px] font-medium text-[var(--ink-muted)]">{navigation.map((item) => <Link href={item.href} key={item.href}><span className="block text-lg">{item.label === "Log" ? "+" : item.label === "Dashboard" ? "⌂" : item.label === "Meal Plans" ? "▦" : item.label === "History" ? "≡" : "○"}</span>{item.label}</Link>)}</div></nav>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--surface)]/90 px-2 py-1.5 backdrop-blur-md md:hidden"
+        aria-label="Mobile navigation"
+      >
+        <div className="mx-auto flex max-w-md items-center justify-around">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+
+            if (item.isCenter) {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="active-press relative -top-3 flex flex-col items-center justify-center"
+                >
+                  <div className="grid size-11 place-items-center rounded-full bg-[var(--leaf)] text-white shadow-lg ring-4 ring-[var(--surface)]">
+                    <Icon className="size-5 text-white stroke-[2.5]" />
+                  </div>
+                  <span className="mt-0.5 max-w-[64px] truncate text-center text-[10px] font-extrabold text-[var(--leaf)]">
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            }
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`active-press flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 transition-all ${
+                  isActive
+                    ? "font-semibold text-[var(--leaf)]"
+                    : "text-[var(--ink-muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                <div
+                  className={`relative flex items-center justify-center rounded-full p-1 ${
+                    isActive ? "bg-[var(--leaf-light)]" : ""
+                  }`}
+                >
+                  <Icon className={`size-4.5 ${isActive ? "text-[var(--leaf)]" : "text-[var(--ink-muted)]"}`} />
+                </div>
+                <span className="mt-0.5 max-w-[60px] truncate text-center text-[10px] leading-tight">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

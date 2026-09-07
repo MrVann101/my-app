@@ -11,6 +11,12 @@ export const suggestionSchema = z.object({
 export const suggestionsResponseSchema = z.object({ suggestions: z.array(suggestionSchema).length(3) });
 export type SuggestionsResponse = z.infer<typeof suggestionsResponseSchema>;
 
+const unsupportedMedicalClaim = /cure|treat|diagnos|prevent disease|medical advice|guarantee weight loss/i;
+
+export function containsUnsupportedMedicalClaim(text: string): boolean {
+  return unsupportedMedicalClaim.test(text);
+}
+
 export type SuggestionBudget = { calories: number; proteinG: number; carbsG: number; fatG: number };
 
 export async function getMealSuggestions(budget: SuggestionBudget): Promise<SuggestionsResponse & { providerUsed: "gemini" | "groq" | "fallback" }> {
@@ -48,6 +54,7 @@ function validateSuggestions(text: string, budget: SuggestionBudget): Suggestion
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   const parsed = suggestionsResponseSchema.parse(JSON.parse(cleaned));
   if (parsed.suggestions.some((suggestion) => suggestion.estimatedCalories > Math.max(budget.calories, 0))) throw new Error("Suggestion exceeds calorie budget");
+  if (parsed.suggestions.some((suggestion) => containsUnsupportedMedicalClaim(`${suggestion.title} ${suggestion.description}`))) throw new Error("Suggestion contains an unsupported medical claim");
   return parsed;
 }
 

@@ -19,6 +19,7 @@
     "verify:daily-rollup": "node scripts/verify-daily-rollup.mjs",
     "verify:retention-purge": "node scripts/verify-retention-purge.mjs",
     "verify:photo-purge": "node scripts/verify-photo-purge.mjs",
+    "smoke:check": "node scripts/smoke-check.mjs",
     "verify:meal-plan-fork": "node scripts/verify-meal-plan-fork.mjs"
     ,"verify:deletion-visibility": "node scripts/verify-deletion-visibility.mjs"
   },
