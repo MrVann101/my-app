@@ -15,8 +15,12 @@
     "verify:food-log": "node scripts/verify-food-log.mjs",
     "verify:ai-cap": "node scripts/verify-ai-cap.mjs",
     "verify:global-ai-limit": "node scripts/verify-global-ai-limit.mjs",
-    "verify:ai-text-cap": "node scripts/verify-ai-text-cap.mjs"
-    ,"verify:daily-rollup": "node scripts/verify-daily-rollup.mjs"
+    "verify:ai-text-cap": "node scripts/verify-ai-text-cap.mjs",
+    "verify:daily-rollup": "node scripts/verify-daily-rollup.mjs",
+    "verify:retention-purge": "node scripts/verify-retention-purge.mjs",
+    "verify:photo-purge": "node scripts/verify-photo-purge.mjs",
+    "verify:meal-plan-fork": "node scripts/verify-meal-plan-fork.mjs"
+    ,"verify:deletion-visibility": "node scripts/verify-deletion-visibility.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.6",

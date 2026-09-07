@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeNutrients, getWeightWarning, nutrientRateSchema } from "@/lib/food";
+import { computeNutrients, displayNutrient, getWeightWarning, nutrientRateSchema } from "@/lib/food";
 
 describe("food nutrient scaling", () => {
   const rate = {
@@ -42,5 +42,11 @@ describe("food nutrient scaling", () => {
     expect(getWeightWarning(5)).toMatch(/small portion/);
     expect(getWeightWarning(2_001)).toMatch(/large portion/);
     expect(getWeightWarning(150)).toBeNull();
+  });
+
+  it("does not present unavailable zero nutrients as precise values", () => {
+    expect(displayNutrient(0, "gemini", "g")).toBe("Not reported");
+    expect(displayNutrient(0, "usda", "g")).toBe("0g");
+    expect(displayNutrient(2.5, "manual", "mg")).toBe("2.5mg");
   });
 });

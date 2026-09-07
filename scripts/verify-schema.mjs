@@ -13,6 +13,9 @@ const migrationNames = [
   "0007_global_ai_rate_limit.sql",
   "0008_ai_text_usage_claim.sql",
   "0009_daily_summary_rollup.sql",
+  "0010_fork_meal_plan.sql",
+  "0011_public_plan_deletion_visibility.sql",
+  "0012_public_plan_profile_check.sql",
 ];
 const sql = (await Promise.all(migrationNames.map((name) => readFile(join(root, name), "utf8")))).join("\n");
 
@@ -55,7 +58,7 @@ for (const trigger of ["food_logs_compute_totals", "meal_plan_items_compute_tota
   if (!sql.includes(trigger)) throw new Error(`Missing integrity trigger: ${trigger}`);
 }
 
-for (const functionName of ["claim_ai_photo_slot", "release_ai_photo_slot", "claim_global_ai_rate_limit", "claim_ai_text_slot", "rollup_daily_summary"]) {
+for (const functionName of ["claim_ai_photo_slot", "release_ai_photo_slot", "claim_global_ai_rate_limit", "claim_ai_text_slot", "rollup_daily_summary", "fork_public_meal_plan", "is_profile_available_for_public_plan"]) {
   if (!sql.includes(`function public.${functionName}`)) throw new Error(`Missing AI usage function: ${functionName}`);
 }
 

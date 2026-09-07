@@ -19,6 +19,11 @@ export function getWeightWarning(weightG: number): string | null {
   return null;
 }
 
+export function displayNutrient(value: number, source: "usda" | "off" | "gemini" | "groq" | "manual" | null, unit: string): string {
+  if (value === 0 && source !== "usda" && source !== "off") return "Not reported";
+  return `${round(value)}${unit}`;
+}
+
 export function computeNutrients(weightG: number, nutrientRate: NutrientRate): ComputedNutrients {
   const weight = foodWeightSchema.parse(weightG);
   const rate = nutrientRateSchema.parse(nutrientRate);

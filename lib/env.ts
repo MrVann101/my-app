@@ -62,3 +62,7 @@ export function getGeminiApiKey(): string {
 export function getGroqApiKey(): string {
   return requireValue("GROQ_API_KEY");
 }
+
+export function getResendApiKey(): string {
+  return requireValue("RESEND_API_KEY");
+}

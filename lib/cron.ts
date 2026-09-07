@@ -1,6 +1,8 @@
 import { logger } from "@/lib/logger";
 
-export async function runCronJob<T extends Record<string, unknown>>(name: string, task: () => Promise<T>): Promise<T> {
+type CronMetrics = Record<string, string | number | boolean | null | undefined>;
+
+export async function runCronJob<T extends CronMetrics>(name: string, task: () => Promise<T>): Promise<T> {
   const startedAt = Date.now();
   logger.info("cron_started", { job: name });
   try {

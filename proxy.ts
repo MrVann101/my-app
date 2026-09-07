@@ -29,9 +29,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(verificationUrl);
   }
 
+  if (request.nextUrl.pathname !== "/account-deletion") {
+    const { data: profile } = await supabase.from("profiles").select("deletion_requested_at").eq("user_id", user.id).maybeSingle();
+    if (profile?.deletion_requested_at) return NextResponse.redirect(new URL("/account-deletion", request.url));
+  }
+
   return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/profile/:path*", "/meal-plans/:path*", "/log/:path*", "/history/:path*"],
+  matcher: ["/dashboard/:path*", "/profile/:path*", "/meal-plans/:path*", "/log/:path*", "/history/:path*", "/account-deletion"],
 };
