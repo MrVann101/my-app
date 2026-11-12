@@ -1,22 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 import { createClient } from "@/lib/supabase/server";
+import { AiFoodError, analyzeFoodImage, validateFoodImage } from "@/lib/ai-food";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/ai-food", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ai-food")>();
+  return { ...actual, analyzeFoodImage: vi.fn(), validateFoodImage: vi.fn() };
+});
 
 const mockedCreateClient = vi.mocked(createClient);
+const mockedAnalyzeFoodImage = vi.mocked(analyzeFoodImage);
+const mockedValidateFoodImage = vi.mocked(validateFoodImage);
+
+function setupAuthenticatedClient(rpc: ReturnType<typeof vi.fn>) {
+  const profileQuery = {
+    select: vi.fn(() => profileQuery),
+    eq: vi.fn(() => profileQuery),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { timezone: "UTC" }, error: null }),
+  };
+  mockedCreateClient.mockResolvedValue({
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
+    from: vi.fn(() => profileQuery),
+    rpc,
+  } as never);
+  return rpc;
+}
 
 describe("photo analysis route", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns the daily cap response before analyzing when no slot is available", async () => {
-    const profileQuery = {
-      select: vi.fn(() => profileQuery),
-      eq: vi.fn(() => profileQuery),
-      maybeSingle: vi.fn().mockResolvedValue({ data: { timezone: "UTC" }, error: null }),
-    };
-    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
-    mockedCreateClient.mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) }, from: vi.fn(() => profileQuery), rpc } as never);
+    const rpc = setupAuthenticatedClient(vi.fn().mockResolvedValue({ data: false, error: null }));
 
     const form = new FormData();
     form.set("image", new File([new Uint8Array([1, 2, 3])], "meal.jpg", { type: "image/jpeg" }));
@@ -26,5 +41,45 @@ describe("photo analysis route", () => {
     expect(response.status).toBe(429);
     expect(payload.error.code).toBe("daily_photo_cap");
     expect(rpc).toHaveBeenCalledWith("claim_ai_photo_slot", expect.objectContaining({ p_user_id: "user-1" }));
+  });
+
+  it("returns a client error for unsupported image input and releases the claimed slot", async () => {
+    const rpc = setupAuthenticatedClient(vi.fn()
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValue({ data: null, error: null }));
+    mockedValidateFoodImage.mockRejectedValue(new AiFoodError("Unsupported image type. Use JPEG, PNG, or WebP."));
+
+    const form = new FormData();
+    form.set("image", new File(["not an image"], "meal.gif", { type: "image/gif" }));
+    const response = await POST(new Request("http://localhost/api/food/analyze-photo", { method: "POST", body: form }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error.code).toBe("invalid_food_image");
+    expect(payload.error.message).toContain("Unsupported image type");
+    expect(rpc).toHaveBeenCalledWith("release_ai_photo_slot", expect.objectContaining({ p_user_id: "user-1" }));
+    expect(mockedAnalyzeFoodImage).not.toHaveBeenCalled();
+  });
+
+  it("returns a retryable service error when both AI providers are unavailable", async () => {
+    setupAuthenticatedClient(vi.fn()
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValue({ data: null, error: null }));
+    mockedValidateFoodImage.mockResolvedValue({ base64: "encoded-image", mimeType: "image/jpeg" });
+    mockedAnalyzeFoodImage.mockRejectedValue(new AiFoodError(
+      "Food image analysis is unavailable. Search the food database or enter it manually.",
+      true,
+    ));
+
+    const form = new FormData();
+    form.set("image", new File([new Uint8Array([1, 2, 3])], "meal.jpg", { type: "image/jpeg" }));
+    const response = await POST(new Request("http://localhost/api/food/analyze-photo", { method: "POST", body: form }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(payload.error.code).toBe("photo_analysis_unavailable");
+    expect(payload.error.message).toContain("Food image analysis is unavailable");
   });
 });

@@ -1,8 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -14,22 +14,27 @@ export default function LoginForm() {
     setError(null);
     setIsSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: formData.get("email"), password: formData.get("password") }),
-    });
-    const result = await response.json();
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.get("email"), password: formData.get("password") }),
+      });
+      const result = await response.json();
 
-    if (!response.ok) {
-      setError(result.error?.message ?? "Unable to log in.");
+      if (!response.ok) {
+        setError(result.error?.message ?? "Unable to log in.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setError("Unable to reach Bitewise. Check your internet connection and try again.");
       setIsSubmitting(false);
-      return;
     }
-
-    router.push("/");
-    router.refresh();
   }
 
   return (

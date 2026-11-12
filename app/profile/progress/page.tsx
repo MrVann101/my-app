@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function ProgressPage() {
   return (
-    <AppShell eyebrow="Settings" title="Analytics & Progress">
+    <AppShell eyebrow="Your nutrition" title="Analytics & Progress">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <Link
@@ -21,4 +21,3 @@ export default function ProgressPage() {
     </AppShell>
   );
 }
-

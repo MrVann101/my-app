@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiErrorResponse, ApiError, parseJson } from "@/lib/api";
 import { badgesForProgress } from "@/lib/badges";
 import { computeNutrients, foodWeightSchema, nutrientRateSchema } from "@/lib/food";
+import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { updateStreak } from "@/lib/streaks";
 
@@ -14,8 +15,13 @@ export const foodLogInputSchema = z.object({
   source: z.enum(["ai_photo", "ai_text", "database", "manual"]),
   dataSource: z.enum(["usda", "off", "gemini", "groq"]).nullable().default(null),
   aiConfidence: z.enum(["low", "medium", "high"]).nullable().default(null),
+  isRecipe: z.boolean().default(false),
   photoUrl: z.string().url().nullable().optional(),
+  timezone: z.string().min(1).max(100).optional(),
 });
+
+export const foodLogBatchInputSchema = z.array(foodLogInputSchema).min(1).max(100);
+export const foodLogRequestSchema = z.union([foodLogInputSchema, foodLogBatchInputSchema]);
 
 export async function POST(request: Request) {
   try {
@@ -23,39 +29,73 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ApiError(401, "Authentication is required.", "unauthorized");
 
-    const body = await parseJson(request, foodLogInputSchema);
-    const computed = computeNutrients(body.weightG, body.nutrientRate);
-    const { data: log, error } = await supabase.from("food_logs").insert({
-      user_id: user.id,
-      log_date: body.logDate,
-      meal_type: body.mealType,
-      food_name: body.foodName,
-      weight_g: body.weightG,
-      calories_per_g: body.nutrientRate.caloriesPerG,
-      protein_per_g: body.nutrientRate.proteinPerG,
-      carbs_per_g: body.nutrientRate.carbsPerG,
-      fat_per_g: body.nutrientRate.fatPerG,
-      fiber_per_g: body.nutrientRate.fiberPerG,
-      sodium_per_g: body.nutrientRate.sodiumPerG,
-      sugar_per_g: body.nutrientRate.sugarPerG,
-      calories: computed.calories,
-      protein_g: computed.proteinG,
-      carbs_g: computed.carbsG,
-      fat_g: computed.fatG,
-      fiber_g: computed.fiberG,
-      sodium_mg: computed.sodiumMg,
-      sugar_g: computed.sugarG,
-      source: body.source,
-      data_source: body.dataSource,
-      ai_confidence: body.aiConfidence,
-      photo_url: body.photoUrl ?? null,
-    }).select().single();
+    const requestBody = await parseJson(request, foodLogRequestSchema);
+    const isBatch = Array.isArray(requestBody);
+    const bodies = isBatch ? requestBody : [requestBody];
+    for (const body of bodies) {
+      if (body.timezone) {
+        try {
+          new Intl.DateTimeFormat("en-US", { timeZone: body.timezone }).format();
+        } catch {
+          throw new ApiError(400, "Timezone must be a valid IANA timezone.", "invalid_timezone");
+        }
+      }
+    }
 
-    if (error) throw new ApiError(400, error.message, "food_log_save_failed");
-    const timezone = await refreshDailySummary(supabase, user.id, body.logDate);
-    if (body.logDate === localDate(timezone)) await refreshStreak(supabase, user.id, body.logDate);
-    await awardBadges(supabase, user.id);
-    return Response.json({ log }, { status: 201 });
+    const rows = bodies.map((body) => {
+      const computed = computeNutrients(body.weightG, body.nutrientRate);
+      return {
+        user_id: user.id,
+        log_date: body.logDate,
+        meal_type: body.mealType,
+        food_name: body.foodName,
+        weight_g: body.weightG,
+        calories_per_g: body.nutrientRate.caloriesPerG,
+        protein_per_g: body.nutrientRate.proteinPerG,
+        carbs_per_g: body.nutrientRate.carbsPerG,
+        fat_per_g: body.nutrientRate.fatPerG,
+        fiber_per_g: body.nutrientRate.fiberPerG,
+        sodium_per_g: body.nutrientRate.sodiumPerG,
+        sugar_per_g: body.nutrientRate.sugarPerG,
+        calories: computed.calories,
+        protein_g: computed.proteinG,
+        carbs_g: computed.carbsG,
+        fat_g: computed.fatG,
+        fiber_g: computed.fiberG,
+        sodium_mg: computed.sodiumMg,
+        sugar_g: computed.sugarG,
+        source: body.source,
+        data_source: body.dataSource,
+        ai_confidence: body.aiConfidence,
+        is_recipe: body.isRecipe,
+        photo_url: body.photoUrl ?? null,
+      };
+    });
+    const insertResult = isBatch
+      ? await supabase.from("food_logs").insert(rows).select()
+      : await supabase.from("food_logs").insert(rows[0]).select().single();
+
+    if (insertResult.error) throw new ApiError(400, insertResult.error.message, "food_log_save_failed");
+    const logs = Array.isArray(insertResult.data)
+      ? insertResult.data
+      : insertResult.data
+        ? [insertResult.data]
+        : [];
+    for (const logDate of new Set(bodies.map((body) => body.logDate))) {
+      const profileTimezone = await refreshDailySummary(supabase, user.id, logDate);
+      const shouldRefreshStreak = bodies.some((body) =>
+        body.logDate === logDate && body.logDate === localDate(body.timezone ?? profileTimezone),
+      );
+      if (shouldRefreshStreak) await refreshStreak(supabase, user.id, logDate);
+    }
+    try {
+      await awardBadges(supabase, user.id);
+    } catch (error) {
+      logger.error("badge_award_failed_after_food_log", {
+        error: error instanceof Error ? error.message : "unknown_error",
+      });
+    }
+    return Response.json(isBatch ? { logs } : { log: logs[0] }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }

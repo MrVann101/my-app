@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { computeNutrients, getWeightWarning } from "@/lib/food";
+import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import type { NutrientRate } from "@/lib/types";
 
 const emptyRate: NutrientRate = {
@@ -55,6 +56,7 @@ export default function LogFoodForm() {
 
   const computed = useMemo(() => computeNutrients(weightG, effectiveRate), [effectiveRate, weightG]);
   const weightWarning = getWeightWarning(weightG);
+  const hasNutritionPreview = foodName.trim().length > 0 && effectiveRate.caloriesPerG > 0;
 
   function handleFoodNameChange(name: string) {
     setFoodName(name);
@@ -80,7 +82,8 @@ export default function LogFoodForm() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        logDate: new Date().toISOString().slice(0, 10),
+        logDate: getBrowserDate(),
+        timezone: getBrowserTimezone(),
         mealType,
         foodName,
         weightG,
@@ -233,27 +236,28 @@ export default function LogFoodForm() {
           </div>
         </div>
 
-        {/* Live Computed Nutrients Preview */}
-        <div className="grid grid-cols-3 gap-2.5 rounded-xl bg-[var(--surface-muted)] p-3 text-center">
-          <div>
-            <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Calories</span>
-            <strong className="tabular-nums block text-xl font-extrabold text-[var(--foreground)]">
-              {Math.round(computed.calories)}
-            </strong>
+        {hasNutritionPreview && (
+          <div className="grid grid-cols-3 gap-2.5 rounded-xl bg-[var(--surface-muted)] p-3 text-center">
+            <div>
+              <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Calories</span>
+              <strong className="tabular-nums block text-xl font-extrabold text-[var(--foreground)]">
+                {Math.round(computed.calories)}
+              </strong>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Protein</span>
+              <strong className="tabular-nums block text-xl font-extrabold text-[var(--leaf)]">
+                {Math.round(computed.proteinG)}g
+              </strong>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Rate</span>
+              <strong className="tabular-nums block text-xl font-extrabold text-[var(--ink-muted)]">
+                {effectiveRate.caloriesPerG.toFixed(2)} <span className="text-[10px]">cal/g</span>
+              </strong>
+            </div>
           </div>
-          <div>
-            <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Protein</span>
-            <strong className="tabular-nums block text-xl font-extrabold text-[var(--leaf)]">
-              {Math.round(computed.proteinG)}g
-            </strong>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Rate</span>
-            <strong className="tabular-nums block text-xl font-extrabold text-[var(--ink-muted)]">
-              {effectiveRate.caloriesPerG.toFixed(2)} <span className="text-[10px]">cal/g</span>
-            </strong>
-          </div>
-        </div>
+        )}
 
         {error && <p className="text-xs font-bold text-[var(--coral)]" role="alert">{error}</p>}
 

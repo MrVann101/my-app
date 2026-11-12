@@ -54,6 +54,11 @@ try {
     if (error) throw error;
   }
 
+  const badge = await first.client.from("badges").insert({ user_id: first.id, badge_key: "rls_verification" }).select("id").single();
+  if (badge.error) throw badge.error;
+  const crossUserBadge = await second.client.from("badges").insert({ user_id: first.id, badge_key: "cross_user_verification" });
+  assert(crossUserBadge.error, "User B inserted a badge for User A.");
+
   const privatePlan = await first.client.from("meal_plans").insert({ user_id: first.id, name: "Private verification plan", visibility: "private" }).select("id").single();
   if (privatePlan.error) throw privatePlan.error;
   const item = await first.client.from("meal_plan_items").insert({ plan_id: privatePlan.data.id, food_name: "Rice", weight_g: 100, calories_per_g: 1.3, calories: 999 }).select("calories").single();
@@ -70,6 +75,24 @@ try {
   if (visiblePlan.error) throw visiblePlan.error;
   assert(visiblePlan.data.length === 1, "User B could not read a public meal plan.");
 
+  const weeklyPlan = await first.client.from("weekly_plans").insert({
+    user_id: first.id,
+    name: "Private weekly verification plan",
+    preferences: { dailyCalorieTarget: 2000, mealsPerDay: 3, preferredFoods: [], foodRestrictions: [] },
+    days: [],
+  }).select("id").single();
+  if (weeklyPlan.error) throw weeklyPlan.error;
+  const hiddenWeeklyPlan = await second.client.from("weekly_plans").select("id").eq("id", weeklyPlan.data.id);
+  if (hiddenWeeklyPlan.error) throw hiddenWeeklyPlan.error;
+  assert(hiddenWeeklyPlan.data.length === 0, "User B could read User A's weekly plan.");
+  const crossUserWeeklyPlan = await second.client.from("weekly_plans").insert({
+    user_id: first.id,
+    name: "Cross-user weekly plan",
+    preferences: { dailyCalorieTarget: 2000, mealsPerDay: 3, preferredFoods: [], foodRestrictions: [] },
+    days: [],
+  });
+  assert(crossUserWeeklyPlan.error, "User B inserted a weekly plan for User A.");
+
   const customFood = await first.client.from("custom_foods").insert({ user_id: first.id, food_name: "Private sauce", default_weight_g: 20, calories_per_g: 2, label_calories: 40, label_weight_g: 20 }).select("id").single();
   if (customFood.error) throw customFood.error;
   const hiddenFood = await second.client.from("custom_foods").select("id").eq("id", customFood.data.id);
@@ -80,7 +103,7 @@ try {
   if (log.error) throw log.error;
   assert(Number(log.data.calories) === 143, "Computed food-log calories were not enforced.");
 
-  console.log("RLS verification passed: private rows are isolated, public plans are readable, custom foods remain private, and computed totals are enforced.");
+  console.log("RLS verification passed: private rows are isolated, badge ownership is enforced, public plans are readable, weekly plans and custom foods remain private, and computed totals are enforced.");
 } finally {
   for (const user of [first, second]) {
     if (user) await admin.auth.admin.deleteUser(user.id);

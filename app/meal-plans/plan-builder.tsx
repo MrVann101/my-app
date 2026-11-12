@@ -1,375 +1,409 @@
 "use client";
 
-import { useState } from "react";
-import FoodSearch, { type SearchResult } from "@/app/log/food-search";
-import type { NutrientRate } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
+import type { Recipe, RecipeNutrition } from "@/lib/recipes";
 
-type PlanItem = { foodName: string; weightG: number; nutrientRate: NutrientRate };
+type IngredientInput = { name: string; amount: string };
+const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+const allowedPhotoTypes = ["image/jpeg", "image/png", "image/webp"];
 
-const PLAN_AVATARS = ["🥗", "🍗", "🍳", "🥩", "🍱", "🥑", "🥞", "🍲", "🥪", "🥣"];
+function isRecipeNutrition(value: unknown): value is RecipeNutrition {
+  if (typeof value !== "object" || value === null) return false;
+  const nutrition = value as Record<string, unknown>;
+  return Number.isFinite(nutrition.calories)
+    && Number.isFinite(nutrition.proteinG)
+    && Number.isFinite(nutrition.carbsG)
+    && Number.isFinite(nutrition.fatG)
+    && Number(nutrition.calories) >= 0
+    && Number(nutrition.calories) <= 5000
+    && Number(nutrition.proteinG) >= 0
+    && Number(nutrition.proteinG) <= 500
+    && Number(nutrition.carbsG) >= 0
+    && Number(nutrition.carbsG) <= 1000
+    && Number(nutrition.fatG) >= 0
+    && Number(nutrition.fatG) <= 500;
+}
 
-export default function PlanBuilder({ onPlanCreated }: { onPlanCreated?: () => void }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+export default function PlanBuilder({
+  onPlanCreated,
+}: {
+  onPlanCreated?: (visibility: "public" | "private", trackerMessage: string, trackerError: boolean) => void;
+}) {
   const [name, setName] = useState("");
-  const [coverImage, setCoverImage] = useState<string | null>(null);
-  const [visibility, setVisibility] = useState<"private" | "public">("private");
-
-  const [items, setItems] = useState<PlanItem[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [ingredients, setIngredients] = useState<IngredientInput[]>([{ name: "", amount: "" }]);
+  const [steps, setSteps] = useState([""]);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const photoPreviewUrl = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 3 * 1024 * 1024) {
-        setError("Cover image file size should be less than 3MB.");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCoverImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  function handleAddSearchResult(result: SearchResult) {
-    const newItem: PlanItem = {
-      foodName: result.foodName,
-      weightG: result.defaultWeightG || 100,
-      nutrientRate: result.nutrientRate,
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
     };
-    setItems((prev) => [...prev, newItem]);
-  }
+  }, []);
 
-  function updateItemWeight(index: number, newWeight: number) {
-    const validWeight = Math.max(1, Math.min(10000, newWeight));
-    setItems((current) =>
-      current.map((item, i) => (i === index ? { ...item, weightG: validWeight } : item))
-    );
-  }
-
-  function removeItem(index: number) {
-    setItems((current) => current.filter((_, i) => i !== index));
-  }
-
-  async function savePlan() {
-    if (!name || items.length === 0) return;
+  function choosePhoto(file: File | undefined) {
+    if (!file) return;
+    if (!allowedPhotoTypes.includes(file.type)) {
+      setError("Choose a JPG, PNG, or WebP photo.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError("Photo size should be less than 3MB.");
+      return;
+    }
+    if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
+    photoPreviewUrl.current = URL.createObjectURL(file);
+    setPhotoPreview(photoPreviewUrl.current);
     setError(null);
-    setIsSaving(true);
+    setPhoto(file);
+  }
 
-    const planName = name.trim();
+  function removePhoto() {
+    if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
+    photoPreviewUrl.current = null;
+    setPhotoPreview(null);
+    setPhoto(null);
+  }
 
-    const response = await fetch("/api/meal-plans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: planName,
-        visibility,
-        goal: null,
-        dietType: null,
-        items,
-      }),
+  function updateIngredient(index: number, field: keyof IngredientInput, value: string) {
+    setIngredients((current) => {
+      const updated = current.map((ingredient, ingredientIndex) =>
+        ingredientIndex === index ? { ...ingredient, [field]: value } : ingredient
+      );
+      if (index === current.length - 1 && value.trim() && current.length < 30) {
+        updated.push({ name: "", amount: "" });
+      }
+      return updated;
     });
+  }
 
-    const payload = await response.json();
-    setIsSaving(false);
+  function removeIngredient(index: number) {
+    setIngredients((current) => {
+      const remaining = current.filter((_, ingredientIndex) => ingredientIndex !== index);
+      if (remaining.length === 0 || remaining[remaining.length - 1].name || remaining[remaining.length - 1].amount) {
+        remaining.push({ name: "", amount: "" });
+      }
+      return remaining;
+    });
+  }
 
-    if (!response.ok) {
-      setError(payload.error?.message ?? "Unable to save meal plan.");
+  function updateStep(index: number, value: string) {
+    setSteps((current) => {
+      const updated = current.map((step, stepIndex) => stepIndex === index ? value : step);
+      if (index === current.length - 1 && value.trim() && current.length < 20) {
+        updated.push("");
+      }
+      return updated;
+    });
+  }
+
+  function removeStep(index: number) {
+    setSteps((current) => {
+      const remaining = current.filter((_, stepIndex) => stepIndex !== index);
+      if (remaining.length === 0 || remaining[remaining.length - 1].trim()) {
+        remaining.push("");
+      }
+      return remaining;
+    });
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const submitter = event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
+    if (!(submitter instanceof HTMLButtonElement) || (submitter.value !== "public" && submitter.value !== "private")) {
+      setError("Choose whether to post this meal publicly or save it to My Plans.");
+      return;
+    }
+    void publishPlan(submitter.value);
+  }
+
+  async function publishPlan(visibility: "public" | "private") {
+    const recipeIngredients = ingredients
+      .map((ingredient) => ({ name: ingredient.name.trim(), amount: ingredient.amount.trim(), pantryStaple: false }))
+      .filter((ingredient) => ingredient.name && ingredient.amount);
+    const recipeSteps = steps.map((step) => step.trim()).filter(Boolean);
+
+    if (!name.trim()) {
+      setError("Enter a meal name.");
+      return;
+    }
+    if (ingredients.some((ingredient) => Boolean(ingredient.name.trim()) !== Boolean(ingredient.amount.trim()))) {
+      setError("Enter both the ingredient and amount, or clear the row.");
+      return;
+    }
+    if (recipeIngredients.length === 0) {
+      setError("Add at least one ingredient with its amount.");
+      return;
+    }
+    if (recipeSteps.length === 0) {
+      setError("Add at least one cooking step.");
+      return;
+    }
+    if (recipeIngredients.length > 30 || recipeSteps.length > 20) {
+      setError("Use up to 30 ingredients and 20 cooking steps.");
       return;
     }
 
-    if (coverImage && typeof window !== "undefined") {
-      try {
-        localStorage.setItem(`bitewise_plan_cover_${payload.plan.id}`, coverImage);
-      } catch {}
-    }
+    setIsSaving(true);
+    let uploadedPhotoPath: string | null = null;
+    try {
+      const estimateResponse = await fetch("/api/meal-plans/estimate-nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), ingredients: recipeIngredients }),
+      });
+      const estimatePayload = await estimateResponse.json();
+      if (!estimateResponse.ok) {
+        throw new Error(estimatePayload.error?.message ?? "Unable to estimate meal calories.");
+      }
+      if (!isRecipeNutrition(estimatePayload.nutrition)) {
+        throw new Error("Unable to estimate meal calories. Please check the ingredients and try again.");
+      }
+      const nutrition = estimatePayload.nutrition;
+      const isNutritionFallback = estimatePayload.isFallback === true;
 
-    setMessage(`✓ Created meal plan template "${payload.plan.name}"!`);
-    setName("");
-    setCoverImage(null);
-    setItems([]);
-    setStep(1);
-    onPlanCreated?.();
+      let imageUrl: string | undefined;
+      if (photo) {
+        const supabase = createClient();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw new Error(userError.message);
+        if (!user) throw new Error("Sign in again before uploading a photo.");
+
+        const extension = photo.type === "image/jpeg" ? "jpg" : photo.type === "image/png" ? "png" : "webp";
+        const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("meal-plan-photos")
+          .upload(path, photo, { contentType: photo.type, upsert: false });
+        if (uploadError) throw new Error(`Unable to upload photo: ${uploadError.message}`);
+        uploadedPhotoPath = path;
+        imageUrl = supabase.storage.from("meal-plan-photos").getPublicUrl(path).data.publicUrl;
+      }
+
+      const recipe: Recipe = {
+        title: name.trim(),
+        description: "Manually added recipe.",
+        cookTimeMinutes: 1,
+        servings: 1,
+        nutrition,
+        ingredients: recipeIngredients,
+        steps: recipeSteps,
+        manual: true,
+        nutritionEstimate: isNutritionFallback ? "ingredient-based" : "ai",
+        ...(imageUrl ? { imageUrl } : {}),
+      };
+      const response = await fetch("/api/meal-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility, recipe }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        const message = payload.error?.message ?? "Unable to publish meal plan.";
+        if (uploadedPhotoPath) {
+          const { error: cleanupError } = await createClient().storage
+            .from("meal-plan-photos")
+            .remove([uploadedPhotoPath]);
+          uploadedPhotoPath = null;
+          if (cleanupError) throw new Error(`${message} The uploaded photo could not be removed: ${cleanupError.message}`);
+        }
+        setError(message);
+        return;
+      }
+
+      uploadedPhotoPath = null;
+      let trackerMessage = isNutritionFallback
+        ? `AI estimation is unavailable. An approximate ingredient-based estimate of ${Math.round(nutrition.calories)} kcal for "${recipe.title}" was added to today's tracker.`
+        : `Estimated ${Math.round(nutrition.calories)} kcal per serving for "${recipe.title}" and added it to today's tracker.`;
+      let trackerError = false;
+      try {
+        const logResponse = await fetch("/api/food/log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            logDate: getBrowserDate(),
+            timezone: getBrowserTimezone(),
+            mealType: "snack",
+            foodName: recipe.title,
+            weightG: 1,
+            nutrientRate: {
+              caloriesPerG: nutrition.calories,
+              proteinPerG: nutrition.proteinG,
+              carbsPerG: nutrition.carbsG,
+              fatPerG: nutrition.fatG,
+              fiberPerG: 0,
+              sodiumPerG: 0,
+              sugarPerG: 0,
+            },
+            source: "manual",
+            dataSource: null,
+            aiConfidence: null,
+            isRecipe: true,
+          }),
+        });
+        const logPayload = await logResponse.json();
+        if (!logResponse.ok) {
+          trackerError = true;
+          trackerMessage = `Meal posted, but its calories could not be added to today's tracker: ${logPayload.error?.message ?? "Please add it from your food log."}`;
+        }
+      } catch (logError) {
+        trackerError = true;
+        const reason = logError instanceof Error ? logError.message : "Please add it from your food log.";
+        trackerMessage = `Meal posted, but its calories could not be added to today's tracker: ${reason}`;
+      }
+
+      setName("");
+      setIngredients([{ name: "", amount: "" }]);
+      setSteps([""]);
+      removePhoto();
+      onPlanCreated?.(visibility, trackerMessage, trackerError);
+    } catch (publishError) {
+      let message = publishError instanceof Error ? publishError.message : "Unable to publish meal plan.";
+      if (uploadedPhotoPath) {
+        const { error: cleanupError } = await createClient().storage
+          .from("meal-plan-photos")
+          .remove([uploadedPhotoPath]);
+        if (cleanupError) message = `${message} The uploaded photo could not be removed: ${cleanupError.message}`;
+      }
+      setError(message);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  const totals = items.reduce(
-    (acc, item) => {
-      acc.calories += item.weightG * (item.nutrientRate.caloriesPerG || 0);
-      acc.protein += item.weightG * (item.nutrientRate.proteinPerG || 0);
-      acc.carbs += item.weightG * (item.nutrientRate.carbsPerG || 0);
-      acc.fat += item.weightG * (item.nutrientRate.fatPerG || 0);
-      return acc;
-    },
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
-  );
-
   return (
-    <div className="space-y-6">
-      {/* Wizard Step Progress Header */}
-      <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
-        <div className="flex items-center gap-2">
-          {[1, 2, 3].map((s) => (
-            <span
-              key={s}
-              className={`flex size-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
-                step === s
-                  ? "bg-[var(--leaf)] text-white shadow-2xs"
-                  : step > s
-                  ? "bg-[var(--leaf-light)] text-[var(--leaf-deep)]"
-                  : "bg-[var(--surface-muted)] text-[var(--ink-muted)]"
-              }`}
-            >
-              {s}
-            </span>
-          ))}
-          <span className="ml-2 text-xs font-bold text-[var(--foreground)]">
-            {step === 1 ? "Step 1: Name & Cover Image" : step === 2 ? "Step 2: Search & Add Foods" : "Step 3: Private vs. Public"}
-          </span>
-        </div>
-
-        <span className="tabular-nums text-xs font-bold text-[var(--leaf)]">
-          {Math.round(totals.calories)} kcal total
-        </span>
-      </div>
-
+    <form className="space-y-6" onSubmit={handleSubmit}>
       {error && <p className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-4 text-xs font-bold text-[var(--coral)]" role="alert">{error}</p>}
-      {message && <p className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-deep)]" role="status">{message}</p>}
 
-      {/* STEP 1: Name & Optional Cover Image */}
-      {step === 1 && (
-        <div className="space-y-5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs">
-          <label className="block text-xs font-bold uppercase text-[var(--ink-muted)]">
-            Meal Plan Name
+      <label className="block text-xs font-bold uppercase text-[var(--ink-muted)]">
+        Meal name
+        <input
+          className="mt-1.5 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold outline-none focus:border-[var(--leaf)]"
+          maxLength={120}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="e.g. Grandma's vegetable soup"
+          required
+          value={name}
+        />
+      </label>
+
+      <section aria-labelledby="manual-ingredients-heading" className="space-y-3">
+        <div>
+          <h3 className="text-sm font-bold text-[var(--foreground)]" id="manual-ingredients-heading">Ingredients</h3>
+          <p className="mt-1 text-xs text-[var(--ink-muted)]">Enter an ingredient and amount; a new row appears as you type.</p>
+        </div>
+        {ingredients.map((ingredient, index) => (
+          <div className="flex items-center gap-2" key={index}>
+            <label className="sr-only" htmlFor={`ingredient-name-${index}`}>Ingredient {index + 1}</label>
             <input
-              className="mt-1.5 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold outline-none focus:border-[var(--leaf)]"
-              placeholder="e.g. High Protein Prep, Keto Lunch Pack..."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+              className="h-10 min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--leaf)]"
+              id={`ingredient-name-${index}`}
+              maxLength={200}
+              onChange={(event) => updateIngredient(index, "name", event.target.value)}
+              placeholder="Ingredient"
+              value={ingredient.name}
+            />
+            <label className="sr-only" htmlFor={`ingredient-amount-${index}`}>Amount for ingredient {index + 1}</label>
+            <input
+              className="h-10 w-28 rounded-xl border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--leaf)] sm:w-36"
+              id={`ingredient-amount-${index}`}
+              maxLength={80}
+              onChange={(event) => updateIngredient(index, "amount", event.target.value)}
+              placeholder="Amount"
+              value={ingredient.amount}
+            />
+            <button
+              aria-label={`Remove ingredient ${index + 1}`}
+              className="grid size-9 shrink-0 place-items-center rounded-lg text-[var(--coral)] hover:bg-[var(--coral)]/10 disabled:opacity-40"
+              disabled={ingredients.length === 1 && !ingredient.name && !ingredient.amount}
+              onClick={() => removeIngredient(index)}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </section>
+
+      <section aria-labelledby="manual-steps-heading" className="space-y-3">
+        <div>
+          <h3 className="text-sm font-bold text-[var(--foreground)]" id="manual-steps-heading">How to cook it</h3>
+          <p className="mt-1 text-xs text-[var(--ink-muted)]">Write each cooking step in order; a new row appears as you type.</p>
+        </div>
+        {steps.map((step, index) => (
+          <div className="flex items-start gap-2" key={index}>
+            <label className="sr-only" htmlFor={`cooking-step-${index}`}>Cooking step {index + 1}</label>
+            <span aria-hidden="true" className="pt-2.5 text-sm font-bold text-[var(--ink-muted)]">{index + 1}.</span>
+            <textarea
+              className="min-h-16 min-w-0 flex-1 resize-y rounded-xl border border-[var(--line)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--leaf)]"
+              id={`cooking-step-${index}`}
+              maxLength={800}
+              onChange={(event) => updateStep(index, event.target.value)}
+              placeholder="Describe this cooking step"
+              value={step}
+            />
+            <button
+              aria-label={`Remove cooking step ${index + 1}`}
+              className="mt-1 grid size-9 shrink-0 place-items-center rounded-lg text-[var(--coral)] hover:bg-[var(--coral)]/10 disabled:opacity-40"
+              disabled={steps.length === 1 && !step}
+              onClick={() => removeStep(index)}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </section>
+
+      <section aria-labelledby="manual-photo-heading" className="space-y-3">
+        <h3 className="text-sm font-bold text-[var(--foreground)]" id="manual-photo-heading">Add a photo <span className="font-normal text-[var(--ink-muted)]">(optional)</span></h3>
+        {photoPreview ? (
+          <div className="space-y-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img alt="Meal preview" className="h-48 w-full rounded-2xl border border-[var(--line)] object-cover" src={photoPreview} />
+            <button className="text-xs font-bold text-[var(--coral)] hover:underline" onClick={removePhoto} type="button">
+              Remove photo
+            </button>
+          </div>
+        ) : (
+          <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--line)] bg-[var(--surface-muted)] p-6 text-center hover:border-[var(--leaf)]">
+            <span className="text-sm font-bold text-[var(--foreground)]">Choose a meal photo</span>
+            <span className="mt-1 text-xs text-[var(--ink-muted)]">JPG, PNG, or WebP up to 3MB</span>
+            <input
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={(event) => choosePhoto(event.target.files?.[0])}
+              type="file"
             />
           </label>
+        )}
+      </section>
 
-          <div>
-            <label className="block text-xs font-bold uppercase text-[var(--ink-muted)] mb-2">
-              Plan Cover Image <span className="text-[var(--ink-muted)] font-normal text-[10px]">(Optional)</span>
-            </label>
-            {coverImage ? (
-              <div className="relative overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={coverImage} alt="Plan cover" className="h-36 w-full rounded-xl object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setCoverImage(null)}
-                  className="mt-2 text-xs font-bold text-[var(--coral)] hover:underline"
-                >
-                  ✕ Remove Cover Image
-                </button>
-              </div>
-            ) : (
-              <label className="active-press flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--line)] bg-[var(--surface-muted)] p-6 text-center transition-colors hover:border-[var(--leaf)] hover:bg-[var(--leaf-soft)]/20">
-                <svg className="size-8 text-[var(--leaf)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="mt-2 text-xs font-bold text-[var(--foreground)]">Click to upload cover image</span>
-                <span className="mt-0.5 text-[10px] text-[var(--ink-muted)]">PNG, JPG, WebP up to 3MB</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </label>
-            )}
-          </div>
-
-          <button
-            type="button"
-            disabled={!name.trim()}
-            onClick={() => setStep(2)}
-            className="active-press h-11 w-full rounded-xl bg-[var(--leaf)] text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
-          >
-            Next: Search & Add Foods →
-          </button>
-        </div>
-      )}
-
-      {/* STEP 2: Icon Search & Add Items */}
-      {step === 2 && (
-        <div className="space-y-5">
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-5 space-y-3">
-            <FoodSearch onSelect={() => {}} onAdd={handleAddSearchResult} />
-          </div>
-
-          {/* Current Items List & Live Macro Breakdown */}
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-              <h3 className="text-sm font-bold text-[var(--foreground)]">Plan Items ({items.length})</h3>
-              <span className="tabular-nums text-xs font-extrabold text-[var(--leaf)]">
-                {Math.round(totals.calories)} kcal
-              </span>
-            </div>
-
-            {/* Live Macro Breakdown */}
-            <div className="grid grid-cols-4 gap-2 rounded-xl bg-[var(--surface-muted)] p-3 text-center">
-              <div>
-                <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Calories</span>
-                <strong className="tabular-nums block text-xs font-black text-[var(--foreground)]">{Math.round(totals.calories)}</strong>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Protein</span>
-                <strong className="tabular-nums block text-xs font-black text-[var(--leaf)]">{Math.round(totals.protein)}g</strong>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Carbs</span>
-                <strong className="tabular-nums block text-xs font-black text-[var(--sky-deep)]">{Math.round(totals.carbs)}g</strong>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">Fat</span>
-                <strong className="tabular-nums block text-xs font-black text-[var(--sun)]">{Math.round(totals.fat)}g</strong>
-              </div>
-            </div>
-
-            {items.length === 0 ? (
-              <p className="py-4 text-center text-xs text-[var(--ink-muted)]">
-                No items added yet. Search above and tap <strong>&quot;+ Add&quot;</strong> to build your plan.
-              </p>
-            ) : (
-              <div className="divide-y divide-[var(--line)]/50">
-                {items.map((item, idx) => (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-2 text-xs" key={`${item.foodName}-${idx}`}>
-                    <div>
-                      <strong className="font-bold text-[var(--foreground)] text-sm">{item.foodName}</strong>
-                      <span className="ml-2 tabular-nums font-semibold text-[var(--leaf)]">
-                        {Math.round(item.weightG * item.nutrientRate.caloriesPerG)} kcal
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 rounded-lg border border-[var(--line)] bg-[var(--surface-muted)] p-1">
-                        <button
-                          type="button"
-                          onClick={() => updateItemWeight(idx, item.weightG - 10)}
-                          className="h-7 w-7 rounded-md bg-[var(--surface)] text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
-                        >
-                          -10
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10000"
-                          value={item.weightG}
-                          onChange={(e) => updateItemWeight(idx, Number(e.target.value))}
-                          className="w-14 text-center text-xs font-bold bg-transparent outline-none tabular-nums"
-                        />
-                        <span className="text-[10px] text-[var(--ink-muted)] mr-1">g</span>
-                        <button
-                          type="button"
-                          onClick={() => updateItemWeight(idx, item.weightG + 10)}
-                          className="h-7 w-7 rounded-md bg-[var(--surface)] text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
-                        >
-                          +10
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateItemWeight(idx, item.weightG + 50)}
-                          className="h-7 w-7 rounded-md bg-[var(--surface)] text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
-                        >
-                          +50
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => removeItem(idx)}
-                        className="ml-1 text-xs font-bold text-[var(--coral)] hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-3">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="active-press h-11 flex-1 rounded-xl border border-[var(--line)] text-xs font-bold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
-              >
-                ← Back
-              </button>
-              <button
-                type="button"
-                disabled={items.length === 0}
-                onClick={() => setStep(3)}
-                className="active-press h-11 flex-2 rounded-xl bg-[var(--leaf)] text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
-              >
-                Done: Set Visibility →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: Private vs Public Choice */}
-      {step === 3 && (
-        <div className="space-y-5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-[var(--foreground)]">Choose Plan Visibility</h3>
-          <p className="text-xs text-[var(--ink-muted)]">
-            Decide whether to keep this meal plan private to your account or share it publicly with the community.
-          </p>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setVisibility("private")}
-              className={`active-press p-4 rounded-2xl border text-left transition-all ${
-                visibility === "private"
-                  ? "border-[var(--leaf)] bg-[var(--leaf-light)] text-[var(--leaf-deep)] shadow-2xs"
-                  : "border-[var(--line)] bg-[var(--surface-muted)]"
-              }`}
-            >
-              <strong className="block text-sm font-bold">🔒 Only Me (Private)</strong>
-              <span className="mt-1 block text-xs text-[var(--ink-muted)]">Visible only in your private My Plans dashboard.</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setVisibility("public")}
-              className={`active-press p-4 rounded-2xl border text-left transition-all ${
-                visibility === "public"
-                  ? "border-[var(--leaf)] bg-[var(--leaf-light)] text-[var(--leaf-deep)] shadow-2xs"
-                  : "border-[var(--line)] bg-[var(--surface-muted)]"
-              }`}
-            >
-              <strong className="block text-sm font-bold">🌐 Public (Community)</strong>
-              <span className="mt-1 block text-xs text-[var(--ink-muted)]">Others can browse and fork a private copy.</span>
-            </button>
-          </div>
-
-          <div className="flex gap-2 pt-3">
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              className="active-press h-12 flex-1 rounded-xl border border-[var(--line)] text-xs font-bold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
-            >
-              ← Back
-            </button>
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={() => void savePlan()}
-              className="active-press h-12 flex-2 rounded-xl bg-[var(--leaf)] text-sm font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
-            >
-              {isSaving ? "Saving Plan..." : `✓ Save "${name}" Template`}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          className="active-press h-12 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isSaving}
+          name="visibility"
+          type="submit"
+          value="public"
+        >
+          {isSaving ? "Estimating & posting..." : "Post to Public Plans"}
+        </button>
+        <button
+          className="active-press h-12 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isSaving}
+          name="visibility"
+          type="submit"
+          value="private"
+        >
+          {isSaving ? "Estimating & saving..." : "Post to My Plans"}
+        </button>
+      </div>
+    </form>
   );
 }

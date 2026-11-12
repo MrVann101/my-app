@@ -21,22 +21,27 @@ function requireValue(name: string): string {
   return value;
 }
 
-function requireUrl(name: string): string {
-  const value = requireValue(name);
-
-  try {
-    new URL(value);
-  } catch {
-    throw new Error(`Environment variable ${name} must be a valid URL`);
+function requirePublicValue(name: string, value: string | undefined): string {
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
   }
 
   return value;
 }
 
 export function getPublicEnv(): PublicEnv {
+  const supabaseUrl = requirePublicValue("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseAnonKey = requirePublicValue("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+  try {
+    new URL(supabaseUrl);
+  } catch {
+    throw new Error("Environment variable NEXT_PUBLIC_SUPABASE_URL must be a valid URL");
+  }
+
   return {
-    supabaseUrl: requireUrl("NEXT_PUBLIC_SUPABASE_URL"),
-    supabaseAnonKey: requireValue("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    supabaseUrl,
+    supabaseAnonKey,
   };
 }
 

@@ -18,17 +18,24 @@ const migrationNames = [
   "0012_public_plan_profile_check.sql",
   "0013_recalibration.sql",
   "0014_notification_preferences.sql",
+  "0015_badge_owner_insert.sql",
+  "0016_saved_recipes.sql",
+  "0017_repair_saved_recipe_columns.sql",
+  "0018_favorite_meal_plans.sql",
+  "0019_food_log_recipe_portions.sql",
+  "0020_meal_plan_photos.sql",
+  "0021_weekly_plans.sql",
 ];
 const sql = (await Promise.all(migrationNames.map((name) => readFile(join(root, name), "utf8")))).join("\n");
 
 const tables = {
   profiles: ["user_id", "username", "weight_kg", "height_cm", "age", "sex", "activity_level", "goal", "timezone", "bmr", "tdee", "target_calories", "target_protein_g", "target_carbs_g", "target_fat_g", "deletion_requested_at", "updated_at"],
-  food_logs: ["id", "user_id", "log_date", "meal_type", "food_name", "weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "sodium_mg", "sugar_g", "source", "data_source", "ai_confidence", "logged_from_plan_id", "photo_url", "created_at"],
+  food_logs: ["id", "user_id", "log_date", "meal_type", "food_name", "weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "sodium_mg", "sugar_g", "source", "data_source", "ai_confidence", "logged_from_plan_id", "photo_url", "is_recipe", "created_at"],
   daily_summaries: ["user_id", "summary_date", "total_calories", "total_protein_g", "total_carbs_g", "total_fat_g", "total_fiber_g", "total_sodium_mg", "total_sugar_g", "calories_burned", "hit_target", "logged_at_least_once"],
   weight_logs: ["id", "user_id", "log_date", "weight_kg", "created_at"],
   exercise_logs: ["id", "user_id", "log_date", "activity_name", "calories_burned", "created_at"],
   streaks: ["user_id", "current_streak", "longest_streak", "last_log_date"],
-  meal_plans: ["id", "user_id", "name", "visibility", "goal", "diet_type", "total_calories", "forked_from", "save_count", "created_at"],
+  meal_plans: ["id", "user_id", "name", "visibility", "goal", "diet_type", "total_calories", "forked_from", "save_count", "created_at", "recipe", "cook_time_minutes", "nutrition", "is_favorite", "favorited_at"],
   meal_plan_items: ["id", "plan_id", "meal_type", "food_name", "weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "sodium_mg", "sugar_g"],
   daily_ai_usage: ["user_id", "usage_date", "photo_count", "text_count"],
   favorite_foods: ["id", "user_id", "food_name", "default_weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "use_count", "created_at"],
@@ -36,13 +43,16 @@ const tables = {
   custom_foods: ["id", "user_id", "food_name", "label_source", "default_weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "label_calories", "label_weight_g", "created_at"],
   recalibration_states: ["user_id", "state", "recommended_calories", "updated_at"],
   notification_preferences: ["user_id", "email_enabled", "frequency", "reminder_time", "timezone", "updated_at"],
+  weekly_plans: ["id", "user_id", "name", "preferences", "days", "created_at", "updated_at"],
 };
 
 for (const [table, columns] of Object.entries(tables)) {
   const tableMatch = sql.match(new RegExp(`create table public\\.${table} \\([\\s\\S]*?^\\);`, "m"));
   if (!tableMatch) throw new Error(`Missing table: ${table}`);
   for (const column of columns) {
-    if (!new RegExp(`^\\s+${column}\\s`, "m").test(tableMatch[0])) {
+    const declaredInCreate = new RegExp(`^\\s+${column}\\s`, "m").test(tableMatch[0]);
+    const declaredInAlter = new RegExp(`alter table public\\.${table}[\\s\\S]*?add column\\s+${column}\\b`, "i").test(sql);
+    if (!declaredInCreate && !declaredInAlter) {
       throw new Error(`Missing column ${table}.${column}`);
     }
   }
@@ -50,10 +60,12 @@ for (const [table, columns] of Object.entries(tables)) {
 
 for (const policy of [
   "Custom foods are private to their owner",
+  "Badges can be earned by their owner",
   "Public meal plans are readable by authenticated users",
   "Meal plans are writable by their owner",
   "Public meal-plan items are readable by authenticated users",
   "Meal-plan items are writable by their plan owner",
+  "Weekly plans are private to their owner",
 ]) {
   if (!sql.includes(policy)) throw new Error(`Missing RLS policy: ${policy}`);
 }

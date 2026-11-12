@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { IconRefresh } from "@/components/icons";
+import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 
 type Favorite = { id: number; food_name: string; default_weight_g: number; calories_per_g: number; protein_per_g: number; carbs_per_g: number; fat_per_g: number; fiber_per_g: number; sodium_per_g: number; sugar_per_g: number; use_count: number };
 
@@ -22,7 +23,7 @@ export default function Favorites({ onLogged }: { onLogged?: () => void }) {
   async function relog(favorite: Favorite) {
     setError(null);
     setStatus(null);
-    const response = await fetch("/api/food/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ logDate: new Date().toISOString().slice(0, 10), mealType: "snack", foodName: favorite.food_name, weightG: favorite.default_weight_g, nutrientRate: { caloriesPerG: favorite.calories_per_g, proteinPerG: favorite.protein_per_g, carbsPerG: favorite.carbs_per_g, fatPerG: favorite.fat_per_g, fiberPerG: favorite.fiber_per_g, sodiumPerG: favorite.sodium_per_g, sugarPerG: favorite.sugar_per_g }, source: "database", dataSource: null, aiConfidence: null }) });
+    const response = await fetch("/api/food/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ logDate: getBrowserDate(), timezone: getBrowserTimezone(), mealType: "snack", foodName: favorite.food_name, weightG: favorite.default_weight_g, nutrientRate: { caloriesPerG: favorite.calories_per_g, proteinPerG: favorite.protein_per_g, carbsPerG: favorite.carbs_per_g, fatPerG: favorite.fat_per_g, fiberPerG: favorite.fiber_per_g, sodiumPerG: favorite.sodium_per_g, sugarPerG: favorite.sugar_per_g }, source: "database", dataSource: null, aiConfidence: null }) });
     const payload = await response.json();
     if (!response.ok) { setError(payload.error?.message ?? "Unable to log favorite."); return; }
     setStatus(`${favorite.food_name} added to today's log.`);
@@ -66,4 +67,3 @@ export default function Favorites({ onLogged }: { onLogged?: () => void }) {
     </section>
   );
 }
-

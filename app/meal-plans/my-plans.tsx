@@ -1,195 +1,419 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { IconMealPlans, IconSparkles, IconCheck, IconRefresh } from "@/components/icons";
+import { useCallback, useEffect, useState } from "react";
+import type { Recipe } from "@/lib/recipes";
+import { IconLog } from "@/components/icons";
+import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 
-type Item = { id: number; food_name: string; weight_g: number; calories: number; meal_type: string };
-type Plan = { id: number; name: string; visibility: string; total_calories: number; goal: string | null; diet_type: string | null; meal_plan_items: Item[] };
-type Recipe = { title: string; cookTimeMinutes: number; ingredients: { name: string; amount: string }[]; steps: string[] };
+type SavedMeal = {
+  id: number;
+  name: string;
+  total_calories: number;
+  visibility: "private" | "public";
+  is_favorite: boolean;
+  favorited_at: string | null;
+  recipe: Recipe | null;
+  meal_plan_items: {
+    id: number;
+    meal_type: string;
+    food_name: string;
+    weight_g: number;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+  }[];
+};
+
+type PendingFavoriteAction = {
+  meal: SavedMeal;
+};
 
 export default function MyPlans() {
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [recipes, setRecipes] = useState<Record<number, Recipe>>({});
-  const [loadingRecipe, setLoadingRecipe] = useState<number | null>(null);
+  const [meals, setMeals] = useState<SavedMeal[]>([]);
   const [coverImages, setCoverImages] = useState<Record<number, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [loggingId, setLoggingId] = useState<number | null>(null);
+  const [updatingFavoriteId, setUpdatingFavoriteId] = useState<number | null>(null);
+  const [pendingFavoriteAction, setPendingFavoriteAction] = useState<PendingFavoriteAction | null>(null);
+  const [viewingMealId, setViewingMealId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  async function load() {
-    const response = await fetch("/api/meal-plans");
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error?.message ?? "Unable to load plans.");
-      return;
+  const loadMeals = useCallback(async () => {
+    setError(null);
+    setStatus(null);
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/meal-plans", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message ?? "Unable to load saved meals.");
+      const savedMeals = payload.plans ?? [];
+      setMeals(savedMeals);
+      const images: Record<number, string> = {};
+      for (const meal of savedMeals) {
+        const coverImage = localStorage.getItem(`bitewise_plan_cover_${meal.id}`);
+        if (coverImage) images[meal.id] = coverImage;
+      }
+      setCoverImages(images);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load saved meals.");
+    } finally {
+      setIsLoading(false);
     }
-    setPlans(payload.plans ?? []);
-  }
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void load();
-      if (typeof window !== "undefined") {
-        const map: Record<number, string> = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith("bitewise_plan_cover_")) {
-            const planId = Number(key.replace("bitewise_plan_cover_", ""));
-            if (!isNaN(planId)) {
-              const val = localStorage.getItem(key);
-              if (val) map[planId] = val;
-            }
-          }
-        }
-        setCoverImages(map);
-      }
+      void loadMeals();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [loadMeals]);
 
-  async function logToday(id: number) {
+  async function deleteMeal(id: number) {
     setError(null);
     setStatus(null);
-    const response = await fetch(`/api/meal-plans/${id}/log`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        logDate: new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()),
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error?.message ?? "Unable to log this plan.");
-      return;
+    setDeletingId(id);
+    try {
+      const response = await fetch(`/api/meal-plans/${id}`, { method: "DELETE" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message ?? "Unable to delete this meal.");
+      setMeals((current) => current.filter((meal) => meal.id !== id));
+      setViewingMealId((current) => current === id ? null : current);
+      setStatus("Meal removed from My Plans.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete this meal.");
+    } finally {
+      setDeletingId(null);
     }
-    setStatus(`✓ Added ${payload.logs.length} items from plan to today's journal.`);
   }
 
-  async function generateRecipe(id: number) {
-    setError(null);
-    setLoadingRecipe(id);
-    const response = await fetch(`/api/meal-plans/${id}/recipe`, { method: "POST" });
-    const payload = await response.json();
-    setLoadingRecipe(null);
-    if (!response.ok) {
-      setError(payload.error?.message ?? "Unable to generate recipe.");
+  function requestDeleteMeal(meal: SavedMeal) {
+    if (meal.is_favorite) {
+      setPendingFavoriteAction({ meal });
       return;
     }
-    setRecipes((current) => ({ ...current, [id]: payload.recipe }));
+    void deleteMeal(meal.id);
   }
+
+  async function logMeal(meal: SavedMeal) {
+    await logMealNow(meal);
+  }
+
+  async function logMealNow(meal: SavedMeal) {
+    const recipe = meal.recipe;
+    setError(null);
+    setStatus(null);
+    setLoggingId(meal.id);
+    let wasLogged = false;
+    try {
+      const logDate = getBrowserDate();
+      const timezone = getBrowserTimezone();
+
+      if (!recipe) {
+        const response = await fetch(`/api/meal-plans/${meal.id}/log`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ logDate, timezone }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error?.message ?? "Unable to log this meal plan.");
+        setStatus(`Logged ${meal.name} to your journal. It remains in My Plans. Its calories are included in today's total.`);
+        return;
+      }
+
+      const logResponse = await fetch("/api/food/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logDate,
+          timezone,
+          mealType: "snack",
+          foodName: recipe.title,
+          weightG: 1,
+          nutrientRate: {
+            caloriesPerG: recipe.nutrition.calories,
+            proteinPerG: recipe.nutrition.proteinG,
+            carbsPerG: recipe.nutrition.carbsG,
+            fatPerG: recipe.nutrition.fatG,
+            fiberPerG: 0,
+            sodiumPerG: 0,
+            sugarPerG: 0,
+          },
+          source: "database",
+          dataSource: null,
+          aiConfidence: null,
+          isRecipe: true,
+        }),
+      });
+      const logPayload = await logResponse.json();
+      if (!logResponse.ok) throw new Error(logPayload.error?.message ?? "Unable to log this recipe.");
+      wasLogged = true;
+
+      if (!meal.is_favorite) {
+        const deleteResponse = await fetch(`/api/meal-plans/${meal.id}`, { method: "DELETE" });
+        const deletePayload = await deleteResponse.json();
+        if (!deleteResponse.ok) {
+          throw new Error(`Recipe logged, but it could not be removed from My Plans: ${deletePayload.error?.message ?? "Please refresh and remove it."}`);
+        }
+        setMeals((current) => current.filter((item) => item.id !== meal.id));
+        setStatus(`Logged ${recipe.title} to your journal and removed it from My Plans. Its calories are included in today's total.`);
+      } else {
+        setStatus(`Logged ${recipe.title} to your journal. It remains in My Plans and Favorites. Its calories are included in today's total.`);
+      }
+    } catch (logError) {
+      setError(logError instanceof Error
+        ? logError.message
+        : wasLogged
+          ? "Recipe logged, but it could not be removed from My Plans."
+          : "Unable to log this recipe.");
+    } finally {
+      setLoggingId(null);
+    }
+  }
+
+  async function toggleFavorite(meal: SavedMeal) {
+    setError(null);
+    setStatus(null);
+    setUpdatingFavoriteId(meal.id);
+    const isFavorite = !meal.is_favorite;
+    const favoritedAt = isFavorite ? new Date().toISOString() : null;
+    setMeals((current) => current.map((item) => item.id === meal.id
+      ? { ...item, is_favorite: isFavorite, favorited_at: favoritedAt }
+      : item));
+    try {
+      const response = await fetch(`/api/meal-plans/${meal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isFavorite }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message ?? "Unable to update favorite.");
+      setMeals((current) => current.map((item) => item.id === meal.id
+        ? { ...item, is_favorite: payload.plan.is_favorite, favorited_at: payload.plan.favorited_at }
+        : item));
+      setStatus(payload.plan.is_favorite ? "Recipe added to favorites." : "Recipe removed from favorites.");
+    } catch (favoriteError) {
+      setMeals((current) => current.map((item) => item.id === meal.id
+        ? { ...item, is_favorite: meal.is_favorite, favorited_at: meal.favorited_at }
+        : item));
+      setError(favoriteError instanceof Error ? favoriteError.message : "Unable to update favorite.");
+    } finally {
+      setUpdatingFavoriteId(null);
+    }
+  }
+
+  const orderedMeals = [
+    ...meals.filter((meal) => meal.is_favorite),
+    ...meals.filter((meal) => !meal.is_favorite),
+  ];
 
   return (
-    <section className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs">
-      <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-        <span className="text-xs font-bold uppercase tracking-wider text-[var(--ink-muted)]">
-          Saved Templates ({plans.length})
-        </span>
-        <button
-          className="active-press inline-flex items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] p-2 text-[var(--ink-muted)] hover:bg-[var(--line)] hover:text-[var(--foreground)]"
-          onClick={() => void load()}
-          type="button"
-          title="Refresh plans"
-          aria-label="Refresh plans"
-        >
-          <IconRefresh className="size-4" />
+    <section className="space-y-4">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-[var(--foreground)]">My Plans</h2>
+          <p className="mt-1 text-sm text-[var(--ink-muted)]">Your private plans and meals you have shared publicly.</p>
+        </div>
+        <button className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-bold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-50" disabled={isLoading} onClick={() => void loadMeals()} type="button">
+          {isLoading ? "Refreshing..." : "Refresh"}
         </button>
       </div>
 
-      {error && <p className="mt-4 text-xs font-bold text-[var(--coral)]" role="alert">{error}</p>}
-      {status && <p className="mt-4 text-xs font-bold text-[var(--leaf)]" role="status">{status}</p>}
+      {error && <p className="rounded-xl bg-[var(--coral)]/10 p-4 text-sm font-semibold text-[var(--coral)]" role="alert">{error}</p>}
+      {status && <p className="rounded-xl bg-[var(--leaf-light)] p-4 text-sm font-semibold text-[var(--leaf-deep)]" role="status">{status}</p>}
 
-      <div className="mt-5 space-y-4">
-        {plans.length === 0 ? (
-          <p className="text-xs text-[var(--ink-muted)]">No saved meal plans yet. Create your first plan above!</p>
-        ) : (
-          plans.map((plan) => (
-            <article
-              className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-5 shadow-xs transition-shadow hover:shadow-sm"
-              key={plan.id}
-            >
-              {coverImages[plan.id] && (
-                <div className="-mx-5 -mt-5 mb-4 overflow-hidden border-b border-[var(--line)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={coverImages[plan.id]}
-                    alt={plan.name}
-                    className="h-32 w-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <div>
-                  <h3 className="text-base font-bold text-[var(--foreground)]">{plan.name}</h3>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
-                    <span className="tabular-nums font-bold text-[var(--leaf)]">
-                      {Math.round(Number(plan.total_calories))} kcal
+      {isLoading ? (
+        <p className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 text-sm text-[var(--ink-muted)]">Loading your meals...</p>
+      ) : meals.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] p-8 text-center">
+          <h3 className="font-bold text-[var(--foreground)]">No saved meals yet</h3>
+          <p className="mt-2 text-sm text-[var(--ink-muted)]">Find a meal using your ingredients or fork a public plan to save it here.</p>
+        </div>
+      ) : (
+        <div className="columns-1 gap-4 lg:columns-2">
+          {orderedMeals.map((meal) => {
+            const recipe = meal.recipe;
+            const title = recipe?.title ?? meal.name;
+            const nutrition = recipe?.nutrition ?? {
+              calories: Number(meal.total_calories),
+              proteinG: meal.meal_plan_items.reduce((total, item) => total + Number(item.protein_g), 0),
+              carbsG: meal.meal_plan_items.reduce((total, item) => total + Number(item.carbs_g), 0),
+              fatG: meal.meal_plan_items.reduce((total, item) => total + Number(item.fat_g), 0),
+            };
+            return (
+              <article
+                className="relative mb-4 inline-flex min-h-[400px] w-full break-inside-avoid flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs"
+                key={meal.id}
+              >
+                {(recipe?.imageUrl || coverImages[meal.id]) && (
+                  <div className="-mx-5 -mt-5 mb-4 h-48 shrink-0 overflow-hidden border-b border-[var(--line)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={recipe?.imageUrl ?? coverImages[meal.id]}
+                      alt={`${title} cover`}
+                      className="block h-full w-full object-cover"
+                    />
+                  </div>
+                )}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="pr-11">
+                    <h3 className="line-clamp-1 text-base font-bold text-[var(--foreground)]">{title}</h3>
+                    <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${meal.visibility === "public" ? "bg-[var(--leaf-light)] text-[var(--leaf-deep)]" : "bg-[var(--surface-muted)] text-[var(--ink-muted)]"}`}>
+                      {meal.visibility === "public" ? "Public" : "Private"}
                     </span>
-                    <span>·</span>
-                    <span className="capitalize font-semibold">{plan.visibility}</span>
+                    {!recipe?.manual && (
+                      <p className="mt-1 line-clamp-2 text-sm text-[var(--ink-muted)]">{recipe?.description ?? `${meal.meal_plan_items.length} food items in this meal plan.`}</p>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex gap-2">
-                  <button
-                    className="active-press flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--leaf)] shadow-2xs hover:bg-[var(--surface-muted)]"
-                    onClick={() => void generateRecipe(plan.id)}
-                    type="button"
-                  >
-                    <IconSparkles className="size-3.5" />
-                    <span>{loadingRecipe === plan.id ? "Generating..." : "Recipe"}</span>
-                  </button>
-                  <button
-                    className="active-press flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)]"
-                    onClick={() => void logToday(plan.id)}
-                    type="button"
-                  >
-                    <IconCheck className="size-3.5" />
-                    <span>Log to Today</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Items Breakdown */}
-              <div className="mt-4 divide-y divide-[var(--line)]/40 border-t border-[var(--line)]/50 pt-3">
-                {(plan.meal_plan_items ?? []).map((item) => (
-                  <div className="flex justify-between py-1.5 text-xs" key={item.id}>
-                    <span className="font-semibold text-[var(--foreground)]">
-                      {item.food_name} <span className="font-normal text-[var(--ink-muted)]">· {item.weight_g}g</span>
-                    </span>
-                    <span className="tabular-nums font-bold text-[var(--ink-muted)]">
-                      {Math.round(Number(item.calories))} kcal
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Generated Recipe Dropdown */}
-              {recipes[plan.id] && (
-                <div className="mt-4 rounded-xl border border-[var(--leaf)]/30 bg-[var(--surface)] p-4 text-xs">
-                  <p className="font-bold text-[var(--foreground)]">
-                    📖 {recipes[plan.id].title} ({recipes[plan.id].cookTimeMinutes} min cook)
+                <button
+                  aria-label={meal.is_favorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`}
+                  aria-pressed={meal.is_favorite}
+                  className={`absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full bg-[var(--surface)] shadow-sm transition-colors disabled:opacity-50 ${meal.is_favorite ? "text-amber-500 hover:bg-amber-500/10" : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-amber-500"}`}
+                  disabled={updatingFavoriteId === meal.id}
+                  onClick={() => void toggleFavorite(meal)}
+                  type="button"
+                >
+                  <svg aria-hidden="true" className="size-5" fill={meal.is_favorite ? "currentColor" : "none"} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" />
+                  </svg>
+                </button>
+                <p className="mt-3 min-h-4 text-xs font-semibold text-[var(--leaf-deep)]">
+                  {recipe?.manual
+                    ? "Manual recipe"
+                    : recipe ? `${recipe.cookTimeMinutes} min · ${recipe.servings} servings` : "\u00a0"}
+                </p>
+                {recipe?.manual && recipe.nutrition.calories <= 0 ? (
+                  <p className="mt-3 rounded-xl bg-[var(--surface-muted)] p-3 text-xs text-[var(--ink-muted)]">
+                    Nutrition information wasn’t provided for this manual recipe.
                   </p>
-
-                  <p className="mt-3 font-bold uppercase tracking-wider text-[var(--leaf)]">Ingredients</p>
-                  <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[var(--ink-muted)]">
-                    {recipes[plan.id].ingredients.map((ingredient) => (
-                      <li key={ingredient.name}>
-                        {ingredient.name} — {ingredient.amount}
-                      </li>
+                ) : (
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      ["Calories", `${Math.round(nutrition.calories)} kcal`],
+                      ["Protein", `${Math.round(nutrition.proteinG)} g`],
+                      ["Carbs", `${Math.round(nutrition.carbsG)} g`],
+                      ["Fat", `${Math.round(nutrition.fatG)} g`],
+                    ].map(([label, value]) => (
+                      <div className="rounded-xl bg-[var(--surface-muted)] p-2.5" key={label}>
+                        <p className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">{label}</p>
+                        <p className="mt-1 text-xs font-bold tabular-nums text-[var(--foreground)]">{value}</p>
+                      </div>
                     ))}
-                  </ul>
-
-                  <p className="mt-3 font-bold uppercase tracking-wider text-[var(--leaf)]">Steps</p>
-                  <ol className="mt-1 list-decimal pl-4 space-y-1 text-[var(--foreground)]">
-                    {recipes[plan.id].steps.map((step, index) => (
-                      <li key={`${step}-${index}`}>{step}</li>
-                    ))}
-                  </ol>
+                  </div>
+                )}
+                <div className="mt-4 border-t border-[var(--line)] pt-3">
+                  <button
+                    aria-expanded={viewingMealId === meal.id}
+                    aria-controls={`meal-details-${meal.id}`}
+                    className="cursor-pointer text-sm font-bold text-[var(--leaf-deep)]"
+                    onClick={() => setViewingMealId((current) => current === meal.id ? null : meal.id)}
+                    type="button"
+                  >
+                    {viewingMealId === meal.id ? "Hide details" : recipe ? "View recipe" : "View meal items"}
+                  </button>
+                  {viewingMealId === meal.id && (
+                    <div
+                      className="mt-3"
+                      id={`meal-details-${meal.id}`}
+                    >
+                      {recipe ? (
+                        <>
+                          <h4 className="text-sm font-bold text-[var(--foreground)]">Ingredients</h4>
+                          <ul className="mt-3 space-y-1 text-sm text-[var(--ink-muted)]">
+                            {recipe.ingredients.map((ingredient, index) => (
+                              <li key={`${ingredient.name}-${index}`}>{ingredient.name} — {ingredient.amount}</li>
+                            ))}
+                          </ul>
+                          <h4 className="mt-5 text-sm font-bold text-[var(--foreground)]">Cooking steps</h4>
+                          <ol className="mt-3 list-inside list-decimal space-y-2 text-sm leading-5 text-[var(--foreground)]">
+                            {recipe.steps.map((step, index) => <li key={`${step}-${index}`}>{step}</li>)}
+                          </ol>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="text-sm font-bold text-[var(--foreground)]">Meal items</h4>
+                          <ul className="mt-3 space-y-1 text-sm text-[var(--ink-muted)]">
+                            {meal.meal_plan_items.map((item) => (
+                              <li key={item.id}>{item.food_name} — {Math.round(Number(item.weight_g))} g ({Math.round(Number(item.calories))} kcal)</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </article>
-          ))
-        )}
-      </div>
+                <div className="mt-auto flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
+                  <button
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-white hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={(recipe?.manual && recipe.nutrition.calories <= 0) || loggingId === meal.id || deletingId === meal.id}
+                    onClick={() => void logMeal(meal)}
+                    title={recipe?.manual && recipe.nutrition.calories <= 0 ? "Nutrition information is needed to log this recipe." : undefined}
+                    type="button"
+                  >
+                    <IconLog aria-hidden="true" className="size-4" />
+                    {loggingId === meal.id ? "Logging..." : "Log meal"}
+                  </button>
+                  <button
+                    aria-label={`Remove ${title} from My Plans`}
+                    title="Remove from My Plans"
+                    className="inline-flex size-10 items-center justify-center rounded-xl border border-[var(--coral)]/30 text-[var(--coral)] hover:bg-[var(--coral)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={deletingId === meal.id || loggingId === meal.id}
+                    onClick={() => requestDeleteMeal(meal)}
+                    type="button"
+                  >
+                    <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+      {pendingFavoriteAction && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setPendingFavoriteAction(null)}>
+          <section
+            aria-labelledby="favorite-action-title"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            role="alertdialog"
+          >
+            <h2 className="text-lg font-bold text-[var(--foreground)]" id="favorite-action-title">
+              Confirm removal
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">
+              Are you sure you want to remove{" "}
+              <strong className="text-[var(--foreground)]">{pendingFavoriteAction.meal.recipe?.title ?? pendingFavoriteAction.meal.name}</strong>?
+              This will remove it from My Plans and Favorites.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                className="h-10 rounded-xl border border-[var(--line)] px-4 text-sm font-bold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
+                onClick={() => setPendingFavoriteAction(null)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="h-10 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-white hover:bg-[var(--leaf-deep)]"
+                onClick={() => {
+                  const pending = pendingFavoriteAction;
+                  setPendingFavoriteAction(null);
+                  void deleteMeal(pending.meal.id);
+                }}
+                type="button"
+              >
+                Remove meal
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }

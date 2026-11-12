@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppShell from "@/components/app-shell";
-import { IconSparkles, IconCheck, IconLog } from "@/components/icons";
+import { IconSparkles, IconLog } from "@/components/icons";
 import Link from "next/link";
+import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 
 type Suggestion = {
   title: string;
@@ -12,25 +13,39 @@ type Suggestion = {
   proteinG: number;
 };
 
+type SuggestionProvider = "gemini" | "groq" | "fallback";
+
 export default function SuggestionsPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [provider, setProvider] = useState<string | null>(null);
+  const [provider, setProvider] = useState<SuggestionProvider | null>(null);
+  const [remainingCalories, setRemainingCalories] = useState<number | null>(null);
+  const [logDate, setLogDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loggedStatus, setLoggedStatus] = useState<string | null>(null);
+  const [loggingSuggestions, setLoggingSuggestions] = useState<Set<Suggestion>>(() => new Set());
+  const [loggedSuggestions, setLoggedSuggestions] = useState<Set<Suggestion>>(() => new Set());
+  const generation = useRef(0);
 
   async function loadSuggestions() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/suggestions");
+      generation.current += 1;
+      const params = new URLSearchParams({ generation: String(generation.current), timezone: getBrowserTimezone() });
+      suggestions.forEach((suggestion) => params.append("exclude", suggestion.title));
+      const response = await fetch(`/api/suggestions?${params.toString()}`);
       const payload = await response.json();
       setIsLoading(false);
       if (!response.ok) {
         setError(payload.error?.message ?? "Suggestions are currently unavailable.");
         return;
       }
-      setSuggestions(payload.suggestions ?? []);
+      setRemainingCalories(payload.remainingCalories ?? null);
+      setLogDate(payload.date ?? null);
+      setSuggestions((payload.suggestions ?? []).filter((suggestion: Suggestion) =>
+        typeof payload.remainingCalories === "number" && suggestion.estimatedCalories <= payload.remainingCalories
+      ));
       setProvider(payload.providerUsed ?? null);
     } catch {
       setIsLoading(false);
@@ -39,40 +54,89 @@ export default function SuggestionsPage() {
   }
 
   useEffect(() => {
-    void loadSuggestions();
+    let active = true;
+
+    async function fetchSuggestions() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/suggestions?timezone=${encodeURIComponent(getBrowserTimezone())}`);
+        const payload = await response.json();
+
+        if (!active) return;
+        setIsLoading(false);
+
+        if (!response.ok) {
+          setError(payload.error?.message ?? "Suggestions are currently unavailable.");
+          return;
+        }
+
+        setRemainingCalories(payload.remainingCalories ?? null);
+        setLogDate(payload.date ?? null);
+        setSuggestions((payload.suggestions ?? []).filter((suggestion: Suggestion) =>
+          typeof payload.remainingCalories === "number" && suggestion.estimatedCalories <= payload.remainingCalories
+        ));
+        setProvider(payload.providerUsed ?? null);
+      } catch {
+        if (!active) return;
+        setIsLoading(false);
+        setError("Unable to load suggestions.");
+      }
+    }
+
+    void fetchSuggestions();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function logSuggestion(suggestion: Suggestion) {
+    setError(null);
     setLoggedStatus(null);
-    const response = await fetch("/api/food/log", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        logDate: new Date().toISOString().slice(0, 10),
-        mealType: "snack",
-        foodName: suggestion.title,
-        weightG: 150,
-        nutrientRate: {
-          caloriesPerG: suggestion.estimatedCalories / 150,
-          proteinPerG: suggestion.proteinG / 150,
-          carbsPerG: 0,
-          fatPerG: 0,
-          fiberPerG: 0,
-          sodiumPerG: 0,
-          sugarPerG: 0,
-        },
-        source: "ai_text",
-        dataSource: provider,
-        aiConfidence: "high",
-      }),
-    });
+    setLoggingSuggestions((current) => new Set(current).add(suggestion));
+    try {
+      const response = await fetch("/api/food/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logDate: logDate ?? getBrowserDate(),
+          timezone: getBrowserTimezone(),
+          mealType: "snack",
+          foodName: suggestion.title,
+          weightG: 150,
+          nutrientRate: {
+            caloriesPerG: suggestion.estimatedCalories / 150,
+            proteinPerG: suggestion.proteinG / 150,
+            carbsPerG: 0,
+            fatPerG: 0,
+            fiberPerG: 0,
+            sodiumPerG: 0,
+            sugarPerG: 0,
+          },
+          source: "ai_text",
+          dataSource: provider === "gemini" || provider === "groq" ? provider : null,
+          aiConfidence: "high",
+        }),
+      });
 
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error?.message ?? "Unable to log suggestion.");
-      return;
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error?.message ?? "Unable to log suggestion.");
+        return;
+      }
+      setLoggedSuggestions((current) => new Set(current).add(suggestion));
+      setLoggedStatus(`✓ Added "${suggestion.title}" (${Math.round(suggestion.estimatedCalories)} kcal) to today's log!`);
+    } catch (logError) {
+      setError(logError instanceof Error ? logError.message : "Unable to log suggestion.");
+    } finally {
+      setLoggingSuggestions((current) => {
+        const next = new Set(current);
+        next.delete(suggestion);
+        return next;
+      });
     }
-    setLoggedStatus(`✓ Added "${suggestion.title}" (${Math.round(suggestion.estimatedCalories)} kcal) to today's log!`);
   }
 
   return (
@@ -109,6 +173,12 @@ export default function SuggestionsPage() {
           </div>
         )}
 
+        {remainingCalories !== null && !isLoading && !error && (
+          <p className="text-sm font-semibold text-[var(--ink-muted)]" aria-live="polite">
+            Meals below your remaining budget of {Math.max(0, Math.round(remainingCalories)).toLocaleString()} kcal
+          </p>
+        )}
+
         {/* Loading State */}
         {isLoading && (
           <div className="space-y-4 animate-pulse">
@@ -121,9 +191,9 @@ export default function SuggestionsPage() {
         {/* Suggestions List */}
         {!isLoading && suggestions.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2">
-            {suggestions.map((suggestion) => (
+            {suggestions.map((suggestion, index) => (
               <div
-                key={suggestion.title}
+                key={`${suggestion.title}-${index}`}
                 className="rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs transition-all hover:border-[var(--leaf)]/50 flex flex-col justify-between"
               >
                 <div>
@@ -142,11 +212,18 @@ export default function SuggestionsPage() {
                   </span>
                   <button
                     type="button"
+                    disabled={loggingSuggestions.has(suggestion) || loggedSuggestions.has(suggestion)}
                     onClick={() => void logSuggestion(suggestion)}
-                    className="active-press inline-flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)]"
+                    className="active-press inline-flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <IconLog className="size-3.5" />
-                    <span>Log to Journal</span>
+                    <span>
+                      {loggingSuggestions.has(suggestion)
+                        ? "Saving..."
+                        : loggedSuggestions.has(suggestion)
+                          ? "Saved to Journal"
+                          : "Log to Journal"}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -157,8 +234,14 @@ export default function SuggestionsPage() {
         {/* Empty state */}
         {!isLoading && suggestions.length === 0 && !error && (
           <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-8 text-center shadow-xs">
-            <p className="text-sm font-semibold text-[var(--foreground)]">No suggestions loaded right now.</p>
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">Click &quot;Generate New Ideas&quot; above to fetch AI recommendations.</p>
+            <p className="text-sm font-semibold text-[var(--foreground)]">
+              {remainingCalories !== null && remainingCalories <= 0 ? "You have no calories remaining today." : "No suggestions loaded right now."}
+            </p>
+            <p className="mt-1 text-xs text-[var(--ink-muted)]">
+              {remainingCalories !== null && remainingCalories <= 0
+                ? "Log exercise or generate ideas tomorrow to see meal suggestions."
+                : "Click &quot;Generate New Ideas&quot; above to fetch AI recommendations."}
+            </p>
           </div>
         )}
 

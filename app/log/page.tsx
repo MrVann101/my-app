@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import LogFoodForm from "./log-food-form";
@@ -11,15 +11,10 @@ type LogTab = "search" | "text" | "favorites";
 
 function LogContent() {
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get("tab") as LogTab) || "search";
+  const tabParam = searchParams.get("tab");
+  const initialTab: LogTab =
+    tabParam === "text" || tabParam === "favorites" || tabParam === "search" ? tabParam : "search";
   const [activeTab, setActiveTab] = useState<LogTab>(initialTab);
-
-  useEffect(() => {
-    const tabParam = searchParams.get("tab") as LogTab;
-    if (tabParam === "text" || tabParam === "search" || tabParam === "favorites") {
-      setActiveTab(tabParam);
-    }
-  }, [searchParams]);
 
   return (
     <div className="space-y-6">

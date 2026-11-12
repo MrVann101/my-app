@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ComputedNutrients, NutrientRate } from "@/lib/types";
+import type { AiTextEstimate, ComputedNutrients, NutrientRate } from "@/lib/types";
 
 export const nutrientRateSchema = z.object({
   caloriesPerG: z.number().finite().nonnegative(),
@@ -36,6 +36,42 @@ export function computeNutrients(weightG: number, nutrientRate: NutrientRate): C
     fiberG: round(rate.fiberPerG * weight),
     sodiumMg: round(rate.sodiumPerG * weight),
     sugarG: round(rate.sugarPerG * weight),
+  };
+}
+
+export function combineFoodEstimates(estimates: AiTextEstimate[]): AiTextEstimate | null {
+  if (estimates.length === 0) return null;
+
+  const totalWeightG = estimates.reduce((total, item) => total + item.estimatedWeightG, 0);
+  const weightG = Math.min(totalWeightG, 100_000);
+  const totals = estimates.reduce<ComputedNutrients>((combined, item) => {
+    const nutrients = computeNutrients(item.estimatedWeightG, item.nutrientRate);
+    return {
+      calories: combined.calories + nutrients.calories,
+      proteinG: combined.proteinG + nutrients.proteinG,
+      carbsG: combined.carbsG + nutrients.carbsG,
+      fatG: combined.fatG + nutrients.fatG,
+      fiberG: combined.fiberG + nutrients.fiberG,
+      sodiumMg: combined.sodiumMg + nutrients.sodiumMg,
+      sugarG: combined.sugarG + nutrients.sugarG,
+    };
+  }, { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0, sodiumMg: 0, sugarG: 0 });
+
+  return {
+    foodName: estimates.map((item) => item.foodName.trim()).filter(Boolean).join(", ").slice(0, 200) || "Meal",
+    estimatedWeightG: weightG,
+    nutrientRate: {
+      caloriesPerG: totals.calories / weightG,
+      proteinPerG: totals.proteinG / weightG,
+      carbsPerG: totals.carbsG / weightG,
+      fatPerG: totals.fatG / weightG,
+      fiberPerG: totals.fiberG / weightG,
+      sodiumPerG: totals.sodiumMg / weightG,
+      sugarPerG: totals.sugarG / weightG,
+    },
+    confidence: estimates.some((item) => item.confidence === "low")
+      ? "low"
+      : estimates.every((item) => item.confidence === "high") ? "high" : "medium",
   };
 }
 

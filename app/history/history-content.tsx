@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IconHistory, IconLog } from "@/components/icons";
 
-type Log = { id: number; log_date: string; food_name: string; meal_type: string; weight_g: number; calories: number };
+type Log = { id: number; log_date: string; food_name: string; meal_type: string; weight_g: number; calories: number; is_recipe?: boolean };
 
 function dateOffset(days: number) {
   const date = new Date();
@@ -119,7 +119,7 @@ export default function HistoryContent() {
                       <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
                         <span className="capitalize font-medium text-[var(--leaf)]">{log.meal_type}</span>
                         <span>·</span>
-                        <span>{log.weight_g}g portion</span>
+                        <span>{log.is_recipe ? `${log.weight_g} serving${log.weight_g === 1 ? "" : "s"}` : `${log.weight_g}g portion`}</span>
                       </div>
                     </div>
                     <span className="tabular-nums font-bold text-[var(--foreground)]">

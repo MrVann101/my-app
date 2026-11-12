@@ -2,93 +2,63 @@
 
 import { useState } from "react";
 import AppShell from "@/components/app-shell";
+import RecipeFinder from "./recipe-finder";
+import MyPlans from "./my-plans";
 import PlanBuilder from "./plan-builder";
 import PublicPlans from "./public-plans";
-import MyPlans from "./my-plans";
-import { IconMealPlans, IconGlobe } from "@/components/icons";
 
-type MealPlanTab = "my-plans" | "public-plans" | "create-plan";
+type MealTab = "find-meals" | "public-plans" | "manual-plan" | "my-plans";
 
 export default function MealPlansPage() {
-  const [activeTab, setActiveTab] = useState<MealPlanTab>("my-plans");
+  const [activeTab, setActiveTab] = useState<MealTab>("my-plans");
+  const [postNotice, setPostNotice] = useState<{ message: string; isError: boolean } | null>(null);
 
   return (
-    <AppShell eyebrow="Meal plans" title="Plan ahead, lightly">
+    <AppShell eyebrow="Cook with what you have" title="Meal Plans">
       <div className="space-y-6">
-        {/* Navigation & Tab Switcher Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <nav
-            aria-label="Meal Plan Navigation Tabs"
-            className="flex justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs w-full sm:w-auto"
-          >
+        <nav aria-label="Meal navigation" className="inline-flex w-full max-w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs sm:w-auto">
+          {([
+            ["my-plans", "My Plans"],
+            ["find-meals", "Find Meals"],
+            ["public-plans", "Public Plans"],
+            ["manual-plan", "Manual Plan"],
+          ] as const).map(([tab, label]) => (
             <button
-              type="button"
-              onClick={() => setActiveTab("my-plans")}
-              className={`active-press flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all ${
-                activeTab === "my-plans"
-                  ? "bg-[var(--leaf)] text-white shadow-xs"
-                  : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
+              aria-current={activeTab === tab ? "page" : undefined}
+              className={`min-w-0 flex-1 whitespace-nowrap rounded-xl px-3 py-2.5 text-center text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:text-sm ${
+                activeTab === tab ? "bg-[var(--leaf)] text-white shadow-xs" : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
               }`}
-            >
-              <IconMealPlans className="size-4" />
-              <span>My Saved Plans</span>
-            </button>
-            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
               type="button"
-              onClick={() => setActiveTab("public-plans")}
-              className={`active-press flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all ${
-                activeTab === "public-plans"
-                  ? "bg-[var(--leaf)] text-white shadow-xs"
-                  : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
-              }`}
             >
-              <IconGlobe className="size-4" />
-              <span>Explore Public Plans</span>
+              {label}
             </button>
-          </nav>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("create-plan")}
-            className={`active-press inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold transition-all shadow-xs ${
-              activeTab === "create-plan"
-                ? "bg-[var(--leaf-deep)] text-white ring-2 ring-[var(--leaf)]"
-                : "bg-[var(--leaf)] text-white hover:bg-[var(--leaf-deep)]"
-            }`}
-          >
-            <span>+ Create New Plan</span>
-          </button>
-        </div>
-
-        {/* Tab 1: My Saved Plans */}
-        {activeTab === "my-plans" && <MyPlans />}
-
-        {/* Tab 2: Public Plans */}
-        {activeTab === "public-plans" && (
-          <PublicPlans onForked={() => setActiveTab("my-plans")} />
+          ))}
+        </nav>
+        {postNotice && (
+          <p className={`text-sm font-bold ${postNotice.isError ? "text-[var(--coral)]" : "text-[var(--leaf-deep)]"}`} role={postNotice.isError ? "alert" : "status"}>
+            {postNotice.message}
+          </p>
         )}
 
-        {/* Tab 3: Create Plan Wizard */}
-        {activeTab === "create-plan" && (
-          <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs">
-            <div className="border-b border-[var(--line)] pb-4 mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-[var(--foreground)]">Create Meal Plan Template</h2>
-                <p className="mt-1 text-xs text-[var(--ink-muted)]">
-                  Creating or editing a plan template never changes today&apos;s totals until logged.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveTab("my-plans")}
-                className="text-xs font-bold text-[var(--ink-muted)] hover:text-[var(--foreground)]"
-              >
-                ✕ Cancel
-              </button>
+        {activeTab === "find-meals" && <RecipeFinder />}
+        {activeTab === "public-plans" && <PublicPlans onForked={() => setActiveTab("my-plans")} />}
+        {activeTab === "manual-plan" && (
+          <section className="mx-auto w-full max-w-4xl rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-sm sm:p-7">
+            <div className="mb-5 border-b border-[var(--line)] pb-4">
+              <h2 className="text-lg font-bold text-[var(--foreground)]">Build a manual meal plan</h2>
+              <p className="mt-1 text-sm text-[var(--ink-muted)]">
+                Add ingredients and cooking steps. AI will estimate the nutrition and add one serving to today&apos;s calorie tracker when you post.
+              </p>
             </div>
-            <PlanBuilder onPlanCreated={() => setActiveTab("my-plans")} />
-          </div>
+            <PlanBuilder onPlanCreated={(visibility, message, isError) => {
+              setPostNotice({ message, isError });
+              setActiveTab(visibility === "public" ? "public-plans" : "my-plans");
+            }} />
+          </section>
         )}
+        {activeTab === "my-plans" && <MyPlans />}
       </div>
     </AppShell>
   );

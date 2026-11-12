@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import HeaderSearch from "./header-search";
 import {
   IconDashboard,
@@ -10,16 +10,36 @@ import {
   IconMealPlans,
   IconCamera,
   IconProfile,
+  IconHistory,
   IconBitewiseLogo,
 } from "./icons";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
   { href: "/suggestions", label: "AI Suggestions", icon: IconSparkles },
-  { href: "/meal-plans", label: "Meal Plans", icon: IconMealPlans, isCenter: true },
+  { href: "/meal-plans", label: "Meal Ideas", icon: IconMealPlans, isCenter: true },
   { href: "/photo", label: "Photo AI", icon: IconCamera },
-  { href: "/profile", label: "Profile", icon: IconProfile },
+  { href: "/weekly-plan", label: "Weekly Plan", icon: IconHistory },
 ];
+
+const profileImageEvent = "bitewise-profile-image-change";
+
+function subscribeToProfileImage(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(profileImageEvent, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(profileImageEvent, onStoreChange);
+  };
+}
+
+function getProfileImage() {
+  return localStorage.getItem("bitewise_user_avatar");
+}
+
+function getServerProfileImage() {
+  return null;
+}
 
 export default function AppShell({
   title,
@@ -31,6 +51,11 @@ export default function AppShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const profileImage = useSyncExternalStore(
+    subscribeToProfileImage,
+    getProfileImage,
+    getServerProfileImage,
+  );
 
   return (
     <div className="min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)]">
@@ -81,12 +106,23 @@ export default function AppShell({
               </h1>
             </div>
 
-            {/* Top Right Quick Search Bar (Dashboard Only) */}
-            {pathname === "/dashboard" && (
-              <div className="flex items-center gap-2">
-                <HeaderSearch />
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {pathname === "/dashboard" && <HeaderSearch />}
+              <Link
+                aria-label="Open profile"
+                className={`grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border bg-[var(--surface)] shadow-xs transition-colors hover:bg-[var(--surface-muted)] ${
+                  pathname.startsWith("/profile") ? "border-[var(--leaf)] text-[var(--leaf)]" : "border-[var(--line)] text-[var(--ink-muted)]"
+                }`}
+                href="/profile"
+              >
+                {profileImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt="" className="size-full object-cover" src={profileImage} />
+                ) : (
+                  <IconProfile aria-hidden="true" className="size-5" />
+                )}
+              </Link>
+            </div>
           </header>
           <div className="mt-6">{children}</div>
         </main>

@@ -93,10 +93,10 @@ const APP_COMMANDS: AppCommand[] = [
   },
   {
     id: "meal-plans",
-    title: "Meal Plans",
+    title: "Cook with Ingredients",
     category: "Pages & Settings",
-    keywords: ["meal plans", "templates", "recipes", "create plan", "public plans", "my plans"],
-    description: "My saved templates & community public plans.",
+    keywords: ["meal plans", "ingredients", "recipes", "cook", "my meals", "meal ideas"],
+    description: "Find recipes with ingredients you already have and save your meals.",
     href: "/meal-plans",
     icon: IconMealPlans,
   },

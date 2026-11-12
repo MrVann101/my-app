@@ -1,7 +1,9 @@
 import { apiErrorResponse, ApiError } from "@/lib/api";
+import { dateInTimezone } from "@/lib/date";
+import { currentStreakForDate } from "@/lib/streaks";
 import { createClient } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -11,11 +13,12 @@ export async function GET() {
     if (profileError) throw new ApiError(400, profileError.message, "profile_fetch_failed");
     if (!profile) return Response.json({ date: null, needsOnboarding: true });
 
-    const date = localDate(profile.timezone);
+    const timezone = requestedTimezone(request, profile.timezone);
+    const date = dateInTimezone(new Date(), timezone);
     const [{ data: logs, error: logsError }, { data: exercise, error: exerciseError }, { data: streak, error: streakError }] = await Promise.all([
       supabase.from("food_logs").select("*").eq("user_id", user.id).eq("log_date", date).order("created_at", { ascending: true }),
       supabase.from("exercise_logs").select("calories_burned").eq("user_id", user.id).eq("log_date", date),
-      supabase.from("streaks").select("current_streak, longest_streak").eq("user_id", user.id).maybeSingle(),
+      supabase.from("streaks").select("current_streak, longest_streak, last_log_date").eq("user_id", user.id).maybeSingle(),
     ]);
     if (logsError || exerciseError || streakError) throw new ApiError(400, "Unable to load today’s dashboard.", "dashboard_fetch_failed");
 
@@ -26,6 +29,7 @@ export async function GET() {
 
     return Response.json({
       date,
+      timezone,
       needsOnboarding: false,
       targetCalories,
       caloriesConsumed,
@@ -33,15 +37,26 @@ export async function GET() {
       caloriesRemaining: targetCalories - caloriesConsumed + caloriesBurned,
       macros: { proteinG: sum("protein_g"), carbsG: sum("carbs_g"), fatG: sum("fat_g"), fiberG: sum("fiber_g"), sodiumMg: sum("sodium_mg"), sugarG: sum("sugar_g"), targetProteinG: Number(profile.target_protein_g ?? 0), targetCarbsG: Number(profile.target_carbs_g ?? 0), targetFatG: Number(profile.target_fat_g ?? 0) },
       logs: logs ?? [],
-      streak: streak ?? { current_streak: 0, longest_streak: 0 },
+      streak: {
+        current_streak: currentStreakForDate({
+          currentStreak: Number(streak?.current_streak ?? 0),
+          longestStreak: Number(streak?.longest_streak ?? 0),
+          lastLogDate: streak?.last_log_date ?? null,
+        }, date),
+        longest_streak: Number(streak?.longest_streak ?? 0),
+      },
     });
   } catch (error) {
     return apiErrorResponse(error);
   }
 }
 
-function localDate(timezone: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
+function requestedTimezone(request: Request, profileTimezone: string): string {
+  const timezone = new URL(request.url).searchParams.get("timezone") ?? profileTimezone ?? "UTC";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format();
+  } catch {
+    throw new ApiError(400, "Timezone must be a valid IANA timezone.", "invalid_timezone");
+  }
+  return timezone;
 }

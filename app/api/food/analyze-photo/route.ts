@@ -1,5 +1,6 @@
 import { apiErrorResponse, ApiError } from "@/lib/api";
-import { analyzeFoodImage, validateFoodImage } from "@/lib/ai-food";
+import { AiFoodError, analyzeFoodImage, validateFoodImage } from "@/lib/ai-food";
+import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -46,8 +47,29 @@ export async function POST(request: Request) {
         // The original analysis error is more useful to the client than release cleanup failure.
       }
     }
+    if (error instanceof AiFoodError) {
+      if (error.retryable) {
+        logger.error("photo_analysis_failed", {
+          error: error.message,
+          primary_provider_error: errorMessage(error.cause),
+          fallback_provider_error: errorMessage(error.fallbackCause),
+        });
+      }
+      return apiErrorResponse(new ApiError(
+        error.retryable ? 503 : 400,
+        error.message,
+        error.retryable ? "photo_analysis_unavailable" : "invalid_food_image",
+      ));
+    }
+    if (!(error instanceof ApiError)) {
+      logger.error("photo_analysis_unexpected_error", { error: errorMessage(error) });
+    }
     return apiErrorResponse(error);
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown_error";
 }
 
 function localDate(timezone: string): string {

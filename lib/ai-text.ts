@@ -21,7 +21,7 @@ export async function analyzeFoodText(description: string): Promise<AiTextRespon
 }
 
 async function callGemini(prompt: string): Promise<AiTextResponse> {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`, {
     method: "POST", signal: AbortSignal.timeout(15_000), headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }),
   });
   if (!response.ok) throw new Error(`Gemini text status ${response.status}`);
@@ -33,7 +33,7 @@ async function callGemini(prompt: string): Promise<AiTextResponse> {
 
 async function callGroq(prompt: string): Promise<AiTextResponse> {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST", signal: AbortSignal.timeout(15_000), headers: { "Content-Type": "application/json", Authorization: `Bearer ${getGroqApiKey()}` }, body: JSON.stringify({ model: "llama-3.3-70b-versatile", temperature: 0.1, max_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
+    method: "POST", signal: AbortSignal.timeout(15_000), headers: { "Content-Type": "application/json", Authorization: `Bearer ${getGroqApiKey()}` }, body: JSON.stringify({ model: "openai/gpt-oss-120b", reasoning_effort: "low", temperature: 0.1, max_completion_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
   });
   if (!response.ok) throw new Error(`Groq text status ${response.status}`);
   const payload = await response.json();

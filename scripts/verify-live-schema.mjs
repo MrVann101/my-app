@@ -19,12 +19,12 @@ if (!url || !serviceRoleKey) throw new Error("Supabase URL and service-role key 
 const admin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const expected = {
   profiles: ["user_id", "username", "weight_kg", "height_cm", "age", "sex", "activity_level", "goal", "timezone", "bmr", "tdee", "target_calories", "target_protein_g", "target_carbs_g", "target_fat_g", "deletion_requested_at", "updated_at"],
-  food_logs: ["id", "user_id", "log_date", "meal_type", "food_name", "weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "sodium_mg", "sugar_g", "source", "data_source", "ai_confidence", "logged_from_plan_id", "photo_url", "created_at"],
+  food_logs: ["id", "user_id", "log_date", "meal_type", "food_name", "weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "sodium_mg", "sugar_g", "source", "data_source", "ai_confidence", "logged_from_plan_id", "photo_url", "is_recipe", "created_at"],
   daily_summaries: ["user_id", "summary_date", "total_calories", "total_protein_g", "total_carbs_g", "total_fat_g", "total_fiber_g", "total_sodium_mg", "total_sugar_g", "calories_burned", "hit_target", "logged_at_least_once"],
   weight_logs: ["id", "user_id", "log_date", "weight_kg", "created_at"],
   exercise_logs: ["id", "user_id", "log_date", "activity_name", "calories_burned", "created_at"],
   streaks: ["user_id", "current_streak", "longest_streak", "last_log_date"],
-  meal_plans: ["id", "user_id", "name", "visibility", "goal", "diet_type", "total_calories", "forked_from", "save_count", "created_at"],
+  meal_plans: ["id", "user_id", "name", "visibility", "goal", "diet_type", "total_calories", "forked_from", "save_count", "created_at", "recipe", "cook_time_minutes", "nutrition", "is_favorite", "favorited_at"],
   meal_plan_items: ["id", "plan_id", "meal_type", "food_name", "weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "sodium_mg", "sugar_g"],
   daily_ai_usage: ["user_id", "usage_date", "photo_count", "text_count"],
   favorite_foods: ["id", "user_id", "food_name", "default_weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "use_count", "created_at"],
@@ -32,6 +32,7 @@ const expected = {
   custom_foods: ["id", "user_id", "food_name", "label_source", "default_weight_g", "calories_per_g", "protein_per_g", "carbs_per_g", "fat_per_g", "fiber_per_g", "sodium_per_g", "sugar_per_g", "label_calories", "label_weight_g", "created_at"],
   recalibration_states: ["user_id", "state", "recommended_calories", "updated_at"],
   notification_preferences: ["user_id", "email_enabled", "frequency", "reminder_time", "timezone", "updated_at"],
+  weekly_plans: ["id", "user_id", "name", "preferences", "days", "created_at", "updated_at"],
 };
 
 for (const [table, columns] of Object.entries(expected)) {

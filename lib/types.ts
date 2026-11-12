@@ -62,6 +62,7 @@ export type FoodLogInput = {
   source: FoodSource;
   dataSource: FoodDataSource;
   aiConfidence: Confidence | null;
+  isRecipe?: boolean;
   photoUrl?: string | null;
 };
 
@@ -111,6 +112,8 @@ export type AiTextEstimate = {
   nutrientRate: NutrientRate;
   confidence: Confidence;
 };
+
+export type AiPhotoEstimate = AiTextEstimate;
 
 export type AiAnalysisResponse = {
   items: AiTextEstimate[];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeNutrients, displayNutrient, getWeightWarning, nutrientRateSchema } from "@/lib/food";
+import { combineFoodEstimates, computeNutrients, displayNutrient, getWeightWarning, nutrientRateSchema } from "@/lib/food";
 
 describe("food nutrient scaling", () => {
   const rate = {
@@ -30,6 +30,36 @@ describe("food nutrient scaling", () => {
     expect(full.calories).toBe(half.calories * 2);
     expect(full.proteinG).toBe(half.proteinG * 2);
     expect(full.sodiumMg).toBe(half.sodiumMg * 2);
+  });
+
+  it("combines detected foods into one estimate while preserving total nutrients", () => {
+    const combined = combineFoodEstimates([
+      { foodName: "Rice", estimatedWeightG: 100, nutrientRate: rate, confidence: "high" },
+      {
+        foodName: "Beans",
+        estimatedWeightG: 200,
+        nutrientRate: { ...rate, caloriesPerG: 1, proteinPerG: 0.2 },
+        confidence: "low",
+      },
+    ]);
+
+    expect(combined).not.toBeNull();
+    expect(combined?.foodName).toBe("Rice, Beans");
+    expect(combined?.estimatedWeightG).toBe(300);
+    expect(combined?.confidence).toBe("low");
+    expect(computeNutrients(combined!.estimatedWeightG, combined!.nutrientRate)).toEqual({
+      calories: 350,
+      proteinG: 50,
+      carbsG: 60,
+      fatG: 15,
+      fiberG: 9,
+      sodiumMg: 1.2,
+      sugarG: 6,
+    });
+  });
+
+  it("returns no estimate when there are no detected foods", () => {
+    expect(combineFoodEstimates([])).toBeNull();
   });
 
   it("rejects negative rates and impossible weights", () => {

@@ -16,6 +16,12 @@ export function updateStreak(state: StreakState, logDate: string): StreakState {
   };
 }
 
+export function currentStreakForDate(state: StreakState, today: string): number {
+  if (!state.lastLogDate) return 0;
+  const yesterday = shiftDate(today, -1);
+  return state.lastLogDate === today || state.lastLogDate === yesterday ? state.currentStreak : 0;
+}
+
 function shiftDate(date: string, days: number): string {
   const value = new Date(`${date}T00:00:00Z`);
   value.setUTCDate(value.getUTCDate() + days);

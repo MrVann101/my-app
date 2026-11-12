@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiFoodError, aiFoodResponseSchema, analyzeFoodImage, validateFoodImage } from "@/lib/ai-food";
 
-const result = { items: [{ foodName: "Rice", estimatedWeightG: 150, nutrientRate: { caloriesPerG: 1.3, proteinPerG: 0.02, carbsPerG: 0.28, fatPerG: 0, fiberPerG: 0, sodiumPerG: 0, sugarPerG: 0 }, confidence: "medium" }] };
+const result = { items: [{ foodName: "Chicken adobo", estimatedWeightG: 250, nutrientRate: { caloriesPerG: 1.8, proteinPerG: 0.12, carbsPerG: 0.04, fatPerG: 0.11, fiberPerG: 0, sodiumPerG: 0.004, sugarPerG: 0.01 }, confidence: "medium" }] };
+const separateComponentsResult = { items: [
+  ...result.items,
+  { foodName: "Steamed rice", estimatedWeightG: 180, nutrientRate: { caloriesPerG: 1.3, proteinPerG: 0.025, carbsPerG: 0.28, fatPerG: 0.003, fiberPerG: 0.004, sodiumPerG: 0, sugarPerG: 0 }, confidence: "high" as const },
+] };
 const geminiPayload = { candidates: [{ content: { parts: [{ text: JSON.stringify(result) }] } }] };
 const groqPayload = { choices: [{ message: { content: JSON.stringify(result) } }] };
 
@@ -22,8 +26,24 @@ describe("AI food analysis", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(geminiPayload), { status: 200 }));
     const analysis = await analyzeFoodImage({ base64: "abc", mimeType: "image/jpeg" });
     expect(analysis.providerUsed).toBe("gemini");
-    expect(analysis.items[0].nutrientRate.caloriesPerG).toBe(1.3);
+    expect(analysis.items[0].nutrientRate.caloriesPerG).toBe(1.8);
+    expect(analysis.items[0]).not.toHaveProperty("ingredients");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining("models/gemini-3.5-flash-lite:generateContent"), expect.any(Object));
+  });
+
+  it("requests separate component estimates and preserves their individual calories", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(separateComponentsResult) }] } }] }), { status: 200 }));
+    const analysis = await analyzeFoodImage({ base64: "abc", mimeType: "image/jpeg" });
+    const requestBody = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
+    const prompt = requestBody.contents[0].parts[0].text as string;
+
+    expect(prompt).toContain("one item per distinct, calorie-bearing food component");
+    expect(prompt).toContain("Estimate each item's edible serving weight and nutrients per gram independently");
+    expect(prompt).not.toContain("ingredient");
+    expect(analysis.items.map((item) => item.foodName)).toEqual(["Chicken adobo", "Steamed rice"]);
+    expect(analysis.items.map((item) => item.estimatedWeightG * item.nutrientRate.caloriesPerG)).toEqual([450, 234]);
+    expect(analysis.items.every((item) => !("ingredients" in item))).toBe(true);
   });
 
   it("falls back to Groq when Gemini fails", async () => {

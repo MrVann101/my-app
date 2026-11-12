@@ -5,9 +5,11 @@ import Link from "next/link";
 import { displayNutrient } from "@/lib/food";
 import SuggestionsCard from "./suggestions-card";
 import StreakCalendar from "@/components/streak-calendar";
-import { IconFlame, IconLog } from "@/components/icons";
+import { IconLog } from "@/components/icons";
+import { getBrowserTimezone } from "@/lib/date";
 
 type Dashboard = {
+  timezone?: string;
   needsOnboarding?: boolean;
   targetCalories?: number;
   caloriesConsumed?: number;
@@ -25,7 +27,7 @@ type Dashboard = {
     targetFatG: number;
   };
   streak?: { current_streak: number };
-  logs?: { id: number; food_name: string; calories: number; meal_type: string; source: string; weight_g?: number }[];
+  logs?: { id: number; food_name: string; calories: number; meal_type: string; source: string; weight_g?: number; is_recipe?: boolean }[];
 };
 
 export default function DashboardContent() {
@@ -33,13 +35,49 @@ export default function DashboardContent() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/dashboard")
-      .then(async (response) => {
+    let active = true;
+    let refreshing = false;
+    let midnightTimer: ReturnType<typeof setTimeout>;
+    let timezone = getBrowserTimezone();
+
+    function scheduleMidnightRefresh() {
+      clearTimeout(midnightTimer);
+      midnightTimer = setTimeout(() => void load(), millisecondsUntilNextDay(timezone));
+    }
+
+    async function load() {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const response = await fetch(`/api/dashboard?timezone=${encodeURIComponent(timezone)}`, { cache: "no-store" });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error?.message ?? "Unable to load dashboard.");
+        if (!active) return;
+        if (typeof payload.timezone === "string") timezone = payload.timezone;
         setData(payload);
-      })
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load dashboard."));
+        setError(null);
+      } catch (reason: unknown) {
+        if (active) setError(reason instanceof Error ? reason.message : "Unable to load dashboard.");
+      } finally {
+        refreshing = false;
+        if (active) scheduleMidnightRefresh();
+      }
+    }
+
+    function refreshWhenActive() {
+      if (document.visibilityState === "visible") void load();
+    }
+
+    window.addEventListener("focus", refreshWhenActive);
+    document.addEventListener("visibilitychange", refreshWhenActive);
+    void load();
+
+    return () => {
+      active = false;
+      clearTimeout(midnightTimer);
+      window.removeEventListener("focus", refreshWhenActive);
+      document.removeEventListener("visibilitychange", refreshWhenActive);
+    };
   }, []);
 
   if (error)
@@ -286,13 +324,6 @@ export default function DashboardContent() {
             <h2 className="text-base font-bold text-[var(--foreground)]">Today&apos;s Meals</h2>
             <p className="text-xs text-[var(--ink-muted)]">Logged entries for today</p>
           </div>
-          <Link
-            href="/log"
-            className="active-press flex items-center gap-1.5 rounded-full bg-[var(--leaf-light)] px-3.5 py-1 text-xs font-bold text-[var(--leaf-deep)] hover:bg-[var(--line)]"
-          >
-            <IconLog className="size-4 text-[var(--leaf)]" />
-            <span>Add Meal</span>
-          </Link>
         </div>
 
         {data.logs && data.logs.length > 0 ? (
@@ -304,7 +335,7 @@ export default function DashboardContent() {
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
                     <span className="capitalize font-semibold text-[var(--leaf)]">{log.meal_type}</span>
                     <span>·</span>
-                    {log.weight_g && <span>{log.weight_g}g</span>}
+                    {log.is_recipe ? <span>{log.weight_g} serving{log.weight_g === 1 ? "" : "s"}</span> : log.weight_g ? <span>{log.weight_g}g</span> : null}
                     <span>·</span>
                     <span className="uppercase text-[10px] font-bold text-[var(--ink-muted)]">{log.source}</span>
                   </div>
@@ -332,4 +363,31 @@ export default function DashboardContent() {
       <SuggestionsCard />
     </div>
   );
+}
+
+function millisecondsUntilNextDay(timezone: string): number {
+  const dateAt = (timestamp: number) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(timestamp));
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  };
+
+  const now = Date.now();
+  const today = dateAt(now);
+  let lower = now;
+  let upper = now + 36 * 60 * 60 * 1000;
+  while (dateAt(upper) === today) upper += 24 * 60 * 60 * 1000;
+
+  while (upper - lower > 1000) {
+    const middle = Math.floor((lower + upper) / 2);
+    if (dateAt(middle) === today) lower = middle;
+    else upper = middle;
+  }
+
+  return Math.max(1000, upper - now);
 }

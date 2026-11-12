@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import AppShell from "@/components/app-shell";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
   IconTrendingUp,
   IconHistory,
@@ -13,6 +15,13 @@ import {
   IconShieldCheck,
 } from "@/components/icons";
 import type { ComponentType, SVGProps } from "react";
+
+type ProfileOverview = {
+  name: string;
+  email: string;
+  targetCalories: number | null;
+  goal: string | null;
+};
 
 interface NavItemProps {
   href: string;
@@ -54,14 +63,88 @@ function NavCard({ href, icon: Icon, title, description, badge }: NavItemProps) 
 }
 
 export default function ProfilePage() {
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const router = useRouter();
+  const [profileImage, setProfileImage] = useState<string | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    return localStorage.getItem("bitewise_user_avatar");
+  });
+  const [profileOverview, setProfileOverview] = useState<ProfileOverview | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("bitewise_user_avatar");
-      if (saved) setProfileImage(saved);
+    let active = true;
+    async function loadProfileOverview() {
+      try {
+        const [response, { data: { user }, error: authError }] = await Promise.all([
+          fetch("/api/profile"),
+          createClient().auth.getUser(),
+        ]);
+        if (authError) throw authError;
+        const payload: unknown = await response.json();
+        if (!response.ok) {
+          const message = typeof payload === "object" && payload !== null
+            && "error" in payload && typeof payload.error === "object" && payload.error !== null
+            && "message" in payload.error && typeof payload.error.message === "string"
+            ? payload.error.message
+            : "Unable to load your profile details.";
+          throw new Error(message);
+        }
+
+        const profile = typeof payload === "object" && payload !== null
+          && "profile" in payload && typeof payload.profile === "object" && payload.profile !== null
+          ? payload.profile
+          : null;
+        const email = user?.email ?? "";
+        const name = typeof user?.user_metadata.username === "string"
+          ? user.user_metadata.username
+          : profile && "username" in profile && typeof profile.username === "string"
+            ? profile.username
+            : email.split("@")[0] || "Your profile";
+        const target = profile && "target_calories" in profile && typeof profile.target_calories === "number"
+          ? profile.target_calories
+          : null;
+        const goal = profile && "goal" in profile && typeof profile.goal === "string"
+          ? profile.goal
+          : null;
+        if (active) setProfileOverview({ name, email, targetCalories: target, goal });
+      } catch (reason) {
+        if (active) setProfileError(reason instanceof Error ? reason.message : "Unable to load your profile details.");
+      }
     }
+    void loadProfileOverview();
+    return () => {
+      active = false;
+    };
   }, []);
+
+  async function logOut() {
+    setLogoutError(null);
+    setIsLoggingOut(true);
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        const message = typeof payload === "object" && payload !== null
+          && "error" in payload && typeof payload.error === "object" && payload.error !== null
+          && "message" in payload.error && typeof payload.error.message === "string"
+          ? payload.error.message
+          : "Unable to log out.";
+        throw new Error(message);
+      }
+      localStorage.removeItem("bitewise_user_avatar");
+      window.dispatchEvent(new Event("bitewise-profile-image-change"));
+      router.replace("/login");
+      router.refresh();
+    } catch (reason) {
+      setLogoutError(reason instanceof Error ? reason.message : "Unable to log out.");
+      setIsLoggingOut(false);
+    }
+  }
 
   function handleProfileImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -77,6 +160,7 @@ export default function ProfilePage() {
         if (typeof window !== "undefined") {
           localStorage.setItem("bitewise_user_avatar", result);
           localStorage.setItem("bitewise_avatar_alex_demo", result);
+          window.dispatchEvent(new Event("bitewise-profile-image-change"));
         }
       };
       reader.readAsDataURL(file);
@@ -87,6 +171,7 @@ export default function ProfilePage() {
     setProfileImage(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("bitewise_user_avatar");
+      window.dispatchEvent(new Event("bitewise-profile-image-change"));
     }
   }
 
@@ -102,12 +187,15 @@ export default function ProfilePage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={profileImage}
-                    alt="Alex Demo Profile Avatar"
+                    alt={`${profileOverview?.name ?? "Profile"} avatar`}
                     className="size-16 rounded-full object-cover border-2 border-[var(--leaf)] shadow-md"
                   />
                 ) : (
-                  <div className="flex size-16 items-center justify-center rounded-full bg-gradient-to-br from-[var(--sky)] to-[var(--leaf)] text-xl font-black text-white shadow-sm">
-                    AD
+                  <div className="flex size-16 items-center justify-center rounded-full bg-gradient-to-br from-[var(--sky)] to-[var(--leaf)] text-xl font-black uppercase text-white shadow-sm">
+                    {(profileOverview?.name ?? "U").slice(0, 2)
+                      .split("")
+                      .map((character) => character.charAt(0))
+                      .join("")}
                   </div>
                 )}
                 <label
@@ -129,14 +217,22 @@ export default function ProfilePage() {
 
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[var(--foreground)]">Alex Demo</h2>
+                  <h2 className="text-lg font-bold text-[var(--foreground)]">{profileOverview?.name ?? "Your profile"}</h2>
                   <span className="rounded-full border border-[var(--leaf)]/30 bg-[var(--leaf-soft)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--leaf-deep)]">
                     Active
                   </span>
                 </div>
-                <p className="text-xs text-[var(--ink-muted)]">demo@bitewise.app • 2,200 kcal/day target</p>
+                <p className="text-xs text-[var(--ink-muted)]">
+                  {profileOverview?.email || "Signed-in account"}
+                  {" · "}
+                  {profileOverview?.targetCalories
+                    ? `${Math.round(profileOverview.targetCalories).toLocaleString()} kcal/day target`
+                    : "Set up your calorie target"}
+                  {profileOverview?.goal ? ` · ${profileOverview.goal} goal` : ""}
+                </p>
               </div>
             </div>
+            {profileError && <p className="mt-4 text-sm text-[var(--coral)]" role="alert">{profileError}</p>}
 
             <div className="flex items-center gap-2">
               <label className="active-press inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3.5 py-2 text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)] shadow-2xs transition-colors">
@@ -195,6 +291,12 @@ export default function ProfilePage() {
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <NavCard
+              href="/weekly-plan"
+              icon={IconHistory}
+              title="Weekly Plan"
+              description="Create, customize, and revisit your AI-generated meal schedule."
+            />
+            <NavCard
               href="/profile/body-stats"
               icon={IconScale}
               title="Body Stats & Targets"
@@ -241,6 +343,18 @@ export default function ProfilePage() {
         <p className="text-center text-xs leading-relaxed text-[var(--ink-muted)] px-4 pt-2">
           Bitewise provides estimates for nutritional tracking purposes and is not medical or professional nutrition advice.
         </p>
+
+        <div className="border-t border-[var(--line)] pt-5">
+          {logoutError && <p className="mb-3 text-sm text-[var(--coral)]" role="alert">{logoutError}</p>}
+          <button
+            type="button"
+            disabled={isLoggingOut}
+            onClick={() => void logOut()}
+            className="active-press w-full rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-4 py-3 text-sm font-bold text-[var(--coral)] transition-colors hover:bg-[var(--coral)]/20 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+          >
+            {isLoggingOut ? "Logging out…" : "Log out"}
+          </button>
+        </div>
       </div>
     </AppShell>
   );
