@@ -121,20 +121,17 @@ export default function AppShell({
               </div>
             </nav>
           </div>
-          <div className="space-y-4">
+          <div className="pt-4 border-t border-[var(--line)]">
             <ThemeToggle compact />
-            <p className="border-t border-[var(--line)] pt-4 text-xs leading-5 text-[var(--ink-muted)]">
-              Nutrition estimates are for tracking, not medical advice.
-            </p>
           </div>
         </aside>
 
         {/* Main Content Area */}
         <main className="w-full px-4 pb-28 pt-6 sm:px-8 md:px-10 md:pb-12 md:pt-8">
-          <header className="flex items-center justify-between gap-4 border-b border-[var(--line)]/60 pb-5">
+          <header className="sticky top-0 z-30 -mx-4 -mt-6 mb-6 flex items-center justify-between gap-4 border-b border-[var(--line)]/60 bg-[var(--surface)]/85 px-4 py-4 backdrop-blur-md sm:-mx-8 sm:-mt-8 sm:px-8 sm:py-5 md:-mx-10 md:px-10 transition-all">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-[var(--leaf)]">{eyebrow}</p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
+              <h1 className="mt-0.5 text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">
                 {title}
               </h1>
             </div>

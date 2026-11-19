@@ -70,12 +70,9 @@ export default function HistoryContent() {
   return (
     <div className="space-y-6">
       {/* Retention Callout Notice */}
-      <div className="flex items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-xs leading-relaxed text-[var(--ink-muted)]">
-        <IconHistory className="size-5 shrink-0 text-[var(--leaf)] mt-0.5" />
-        <div>
-          <strong className="block text-xs font-bold text-[var(--foreground)]">30-Day Detail Retention</strong>
-          Detailed itemized logs and food photos are kept for 30 days. Your streak counts and progress trends are stored permanently in daily summaries.
-        </div>
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3.5 text-xs text-[var(--ink-muted)]">
+        <IconHistory className="size-4 shrink-0 text-[var(--leaf)]" />
+        <span>30-day detailed food log archive. Streaks and daily totals are saved permanently.</span>
       </div>
 
       {Object.keys(grouped).length === 0 ? (

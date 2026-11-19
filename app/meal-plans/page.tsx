@@ -47,9 +47,9 @@ export default function MealPlansPage() {
         {activeTab === "manual-plan" && (
           <section className="mx-auto w-full max-w-4xl rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-sm sm:p-7">
             <div className="mb-5 border-b border-[var(--line)] pb-4">
-              <h2 className="text-lg font-bold text-[var(--foreground)]">Build a manual meal plan</h2>
-              <p className="mt-1 text-sm text-[var(--ink-muted)]">
-                Add ingredients and cooking steps. AI will estimate the nutrition; you can add a serving to today&apos;s tracker from My Plans when you are ready.
+              <h2 className="text-base font-bold text-[var(--foreground)]">Build Meal Plan</h2>
+              <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                Add ingredients and steps for custom nutrition estimation.
               </p>
             </div>
             <PlanBuilder onPlanCreated={(visibility, message, isError) => {

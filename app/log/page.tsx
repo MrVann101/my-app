@@ -62,48 +62,24 @@ function LogContent() {
       {/* Tab Content Panels */}
       {activeTab === "search" && (
         <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7 shadow-xs">
-          <div className="border-b border-[var(--line)] pb-4 mb-6">
-            <h2 className="text-base font-bold text-[var(--foreground)]">Quick Food Log</h2>
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">
-              Search common foods with verified USDA nutrition or enter custom values.
-            </p>
-          </div>
-          <LogFoodForm />
+          <LogFoodForm initialMealType={searchParams.get("meal") ?? undefined} />
         </div>
       )}
 
       {activeTab === "saved" && (
         <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7 shadow-xs">
-          <div className="border-b border-[var(--line)] pb-4 mb-6">
-            <h2 className="text-base font-bold text-[var(--foreground)]">Log from Saved Meals</h2>
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">
-              Choose any meal plan or recipe from your collection and add it to today&apos;s food journal in 1 tap.
-            </p>
-          </div>
           <SavedMealsTab />
         </div>
       )}
 
       {activeTab === "text" && (
         <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7 shadow-xs">
-          <div className="border-b border-[var(--line)] pb-4 mb-6">
-            <h2 className="text-base font-bold text-[var(--foreground)]">Describe Your Meal</h2>
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">
-              Type plain language (e.g. &quot;2 eggs and a slice of toast&quot;) for an AI estimate.
-            </p>
-          </div>
           <TextFoodForm />
         </div>
       )}
 
       {activeTab === "favorites" && (
         <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7 shadow-xs">
-          <div className="border-b border-[var(--line)] pb-4 mb-6">
-            <h2 className="text-base font-bold text-[var(--foreground)]">Saved Favorites</h2>
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">
-              Re-log frequent foods with a single tap.
-            </p>
-          </div>
           <Favorites />
         </div>
       )}

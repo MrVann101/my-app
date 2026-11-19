@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { IconFlame, IconCheck } from "./icons";
+import { IconFlame, IconCheck, IconChevronLeft, IconChevronRight } from "./icons";
 
 type Summary = { summary_date: string; logged_at_least_once: boolean; hit_target: boolean; total_calories: number };
 
@@ -91,7 +91,7 @@ export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: 
               className="active-press grid size-11 place-items-center rounded-lg text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
               aria-label="Previous month"
             >
-              ←
+              <IconChevronLeft className="size-4" />
             </button>
             <span className="px-2 text-xs font-bold text-[var(--foreground)] min-w-[100px] text-center">
               {monthName}
@@ -102,7 +102,7 @@ export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: 
               className="active-press grid size-11 place-items-center rounded-lg text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
               aria-label="Next month"
             >
-              →
+              <IconChevronRight className="size-4" />
             </button>
           </div>
 

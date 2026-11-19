@@ -5,7 +5,16 @@ import Link from "next/link";
 import { displayNutrient } from "@/lib/food";
 import SuggestionsCard from "./suggestions-card";
 import StreakCalendar from "@/components/streak-calendar";
-import { IconLog } from "@/components/icons";
+import {
+  IconLog,
+  IconCamera,
+  IconMealPlans,
+  IconHistory,
+  IconCoffee,
+  IconSun,
+  IconUtensils,
+  IconPlus,
+} from "@/components/icons";
 import { getBrowserTimezone } from "@/lib/date";
 import FoodLogRow from "@/components/food-log-row";
 
@@ -126,9 +135,36 @@ export default function DashboardContent() {
   const macros = data.macros!;
 
   const macroConfigs = [
-    { label: "Protein", current: macros.proteinG, target: macros.targetProteinG, unit: "g", color: "bg-[var(--macro-protein)]", textColor: "text-[var(--leaf-ink)]", badgeStyle: "bg-[var(--leaf-light)] text-[var(--leaf-ink)] border-[var(--leaf)]/30", stroke: "var(--macro-protein)" },
-    { label: "Carbs", current: macros.carbsG, target: macros.targetCarbsG, unit: "g", color: "bg-[var(--sun)]", textColor: "text-[var(--sun)]", badgeStyle: "bg-[var(--surface-muted)] text-[var(--foreground)] border-[var(--line)]", stroke: "var(--sun)" },
-    { label: "Fat", current: macros.fatG, target: macros.targetFatG, unit: "g", color: "bg-[var(--coral)]", textColor: "text-[var(--coral)]", badgeStyle: "bg-[var(--coral)]/10 text-[var(--coral)] border-[var(--coral)]/30", stroke: "var(--coral)" },
+    {
+      label: "Protein",
+      current: macros.proteinG,
+      target: macros.targetProteinG,
+      unit: "g",
+      color: "bg-[var(--macro-protein)]",
+      textColor: "text-[var(--leaf-ink)]",
+      badgeStyle: "bg-[var(--leaf-light)] text-[var(--leaf-ink)] border-[var(--leaf)]/30",
+      stroke: "var(--macro-protein)",
+    },
+    {
+      label: "Carbs",
+      current: macros.carbsG,
+      target: macros.targetCarbsG,
+      unit: "g",
+      color: "bg-[var(--macro-carbs)]",
+      textColor: "text-[var(--foreground)]",
+      badgeStyle: "bg-[var(--surface-muted)] text-[var(--foreground)] border-[var(--line)]",
+      stroke: "var(--macro-carbs)",
+    },
+    {
+      label: "Fat",
+      current: macros.fatG,
+      target: macros.targetFatG,
+      unit: "g",
+      color: "bg-[var(--macro-fat)]",
+      textColor: "text-amber-600 dark:text-amber-400",
+      badgeStyle: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
+      stroke: "var(--macro-fat)",
+    },
   ];
 
   const microConfigs = [
@@ -136,6 +172,29 @@ export default function DashboardContent() {
     { label: "Sodium", current: macros.sodiumMg, unit: "mg" },
     { label: "Sugar", current: macros.sugarG, unit: "g" },
   ];
+
+  const mealSlots = [
+    { key: "breakfast", label: "Breakfast", icon: IconCoffee },
+    { key: "lunch", label: "Lunch", icon: IconSun },
+    { key: "dinner", label: "Dinner", icon: IconUtensils },
+    { key: "snack", label: "Snacks", icon: IconLog },
+  ] as const;
+
+  const logs = data.logs ?? [];
+  const groupedLogs = mealSlots.map((slot) => {
+    const items = logs.filter(
+      (l) =>
+        (l.meal_type ?? "").toLowerCase() === slot.key ||
+        (slot.key === "snack" && (l.meal_type ?? "").toLowerCase() === "snacks")
+    );
+    const subtotal = items.reduce((sum, item) => sum + (Number(item.calories) || 0), 0);
+    return { ...slot, items, subtotal };
+  });
+
+  const recognizedTypes = ["breakfast", "lunch", "dinner", "snack", "snacks"];
+  const otherItems = logs.filter(
+    (l) => !recognizedTypes.includes((l.meal_type ?? "").toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -177,6 +236,58 @@ export default function DashboardContent() {
         </div>
       </div>
 
+      {/* Quick Action Toolbar (Mobbin Pattern: 4 Action Shortcuts) */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Quick Actions">
+        <Link
+          href="/log"
+          className="hover-lift active-press flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3.5 shadow-xs transition hover:border-[var(--leaf)]"
+        >
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--leaf-light)] text-[var(--leaf)]">
+            <IconLog className="size-4.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-[var(--foreground)] truncate">Quick Log</p>
+            <p className="text-[11px] text-[var(--ink-muted)] truncate">Search or custom</p>
+          </div>
+        </Link>
+        <Link
+          href="/photo"
+          className="hover-lift active-press flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3.5 shadow-xs transition hover:border-[var(--leaf)]"
+        >
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
+            <IconCamera className="size-4.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-[var(--foreground)] truncate">Photo AI</p>
+            <p className="text-[11px] text-[var(--ink-muted)] truncate">Snap & estimate</p>
+          </div>
+        </Link>
+        <Link
+          href="/meal-plans"
+          className="hover-lift active-press flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3.5 shadow-xs transition hover:border-[var(--leaf)]"
+        >
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <IconMealPlans className="size-4.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-[var(--foreground)] truncate">Meal Plans</p>
+            <p className="text-[11px] text-[var(--ink-muted)] truncate">Recipes & plans</p>
+          </div>
+        </Link>
+        <Link
+          href="/weekly-plan"
+          className="hover-lift active-press flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3.5 shadow-xs transition hover:border-[var(--leaf)]"
+        >
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            <IconHistory className="size-4.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-[var(--foreground)] truncate">Weekly Plan</p>
+            <p className="text-[11px] text-[var(--ink-muted)] truncate">7-day schedule</p>
+          </div>
+        </Link>
+      </div>
+
       {/* Streak Calendar Grid */}
       <StreakCalendar currentStreak={data.streak?.current_streak ?? 0} />
 
@@ -211,7 +322,7 @@ export default function DashboardContent() {
                           cx="50"
                           cy="50"
                           r="38"
-                          stroke="var(--leaf)"
+                          stroke="var(--macro-protein)"
                           strokeWidth="12"
                           fill="none"
                           strokeDasharray={`${(pPct * 2.38).toFixed(1)} 238`}
@@ -222,7 +333,7 @@ export default function DashboardContent() {
                           cx="50"
                           cy="50"
                           r="38"
-                          stroke="var(--sun)"
+                          stroke="var(--macro-carbs)"
                           strokeWidth="12"
                           fill="none"
                           strokeDasharray={`${(cPct * 2.38).toFixed(1)} 238`}
@@ -233,7 +344,7 @@ export default function DashboardContent() {
                           cx="50"
                           cy="50"
                           r="38"
-                          stroke="var(--coral)"
+                          stroke="var(--macro-fat)"
                           strokeWidth="12"
                           fill="none"
                           strokeDasharray={`${(fPct * 2.38).toFixed(1)} 238`}
@@ -251,7 +362,7 @@ export default function DashboardContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full" aria-label="Macro amounts and ratio">
                   <div className="flex items-center justify-between gap-3 text-xs rounded-xl bg-[var(--leaf-light)] p-3 border border-[var(--leaf)]/30">
                     <div className="flex items-center gap-2">
-                      <span className="size-3 rounded-full bg-[var(--leaf)] shadow-2xs shrink-0" />
+                      <span className="size-3 rounded-full bg-[var(--macro-protein)] shadow-2xs shrink-0" />
                       <span className="font-extrabold text-[var(--leaf-ink)]">Protein</span>
                     </div>
                     <span className="tabular-nums font-bold text-[var(--leaf-ink)]">
@@ -261,7 +372,7 @@ export default function DashboardContent() {
 
                   <div className="flex items-center justify-between gap-3 text-xs rounded-xl bg-[var(--surface-muted)] p-3 border border-[var(--line)]">
                     <div className="flex items-center gap-2">
-                      <span className="size-3 rounded-full bg-[var(--sun)] shadow-2xs shrink-0" />
+                      <span className="size-3 rounded-full bg-[var(--macro-carbs)] shadow-2xs shrink-0" />
                       <span className="font-extrabold text-[var(--foreground)]">Carbs</span>
                     </div>
                     <span className="tabular-nums font-bold text-[var(--foreground)]">
@@ -269,12 +380,12 @@ export default function DashboardContent() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 text-xs rounded-xl bg-[var(--coral)]/10 p-3 border border-[var(--coral)]/30">
+                  <div className="flex items-center justify-between gap-3 text-xs rounded-xl bg-amber-500/10 p-3 border border-amber-500/30">
                     <div className="flex items-center gap-2">
-                      <span className="size-3 rounded-full bg-[var(--coral)] shadow-2xs shrink-0" />
-                      <span className="font-extrabold text-[var(--coral)]">Fat</span>
+                      <span className="size-3 rounded-full bg-[var(--macro-fat)] shadow-2xs shrink-0" />
+                      <span className="font-extrabold text-amber-700 dark:text-amber-300">Fat</span>
                     </div>
-                    <span className="tabular-nums font-bold text-[var(--coral)]">
+                    <span className="tabular-nums font-bold text-amber-700 dark:text-amber-300">
                       {Math.round(macros.fatG)}g <span className="text-[10px] opacity-75">({Math.round(fPct)}%)</span>
                     </span>
                   </div>
@@ -348,13 +459,10 @@ export default function DashboardContent() {
         ))}
       </div>
 
-      {/* Today's Meals */}
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs">
-        <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
-          <div>
-            <h2 className="text-base font-bold text-[var(--foreground)]">Today&apos;s Meals</h2>
-            <p className="text-xs text-[var(--ink-muted)]">Logged entries for today</p>
-          </div>
+      {/* Today's Meals - Grouped by Meal Slot (Mobbin Standard) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--ink-muted)]">Today&apos;s Meals</h2>
           <Link
             href="/log"
             className="active-press inline-flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-3 py-1.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
@@ -364,22 +472,73 @@ export default function DashboardContent() {
           </Link>
         </div>
 
-        {data.logs && data.logs.length > 0 ? (
-          <div className="mt-4 divide-y divide-[var(--line)]/50">
-            {data.logs.map((log) => (
-              <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
-            ))}
-          </div>
-        ) : (
-          <div className="py-8 text-center">
-            <p className="text-sm text-[var(--ink-muted)]">No meals logged yet today.</p>
-            <Link
-              href="/log"
-              className="active-press mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
-            >
-              <IconLog className="size-4" />
-              <span>Quick Log Your First Meal</span>
-            </Link>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {groupedLogs.map((slot) => {
+            const SlotIcon = slot.icon;
+            return (
+              <div
+                key={slot.key}
+                className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between border-b border-[var(--line)]/60 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="grid size-8 place-items-center rounded-xl bg-[var(--surface-muted)] text-[var(--leaf)]">
+                        <SlotIcon className="size-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-[var(--foreground)]">{slot.label}</h3>
+                        <p className="text-[11px] text-[var(--ink-muted)]">
+                          {slot.items.length} {slot.items.length === 1 ? "item" : "items"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="tabular-nums text-sm font-extrabold text-[var(--foreground)]">
+                        {Math.round(slot.subtotal)} kcal
+                      </span>
+                      <Link
+                        href={`/log?tab=search&meal=${slot.key}`}
+                        aria-label={`Log ${slot.label}`}
+                        className="active-press grid size-7 place-items-center rounded-lg border border-[var(--line)] text-[var(--ink-muted)] hover:border-[var(--leaf)] hover:text-[var(--leaf)] transition-colors"
+                      >
+                        <IconPlus className="size-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+
+                  {slot.items.length > 0 ? (
+                    <div className="mt-3 divide-y divide-[var(--line)]/40">
+                      {slot.items.map((log) => (
+                        <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex items-center justify-between rounded-xl border border-dashed border-[var(--line)] bg-[var(--surface-muted)]/40 px-3 py-2 text-xs text-[var(--ink-muted)]">
+                      <span>No {slot.label.toLowerCase()} logged</span>
+                      <Link
+                        href={`/log?tab=search&meal=${slot.key}`}
+                        className="inline-flex items-center gap-1 font-semibold text-[var(--leaf)] hover:underline"
+                      >
+                        <IconPlus className="size-3" />
+                        <span>Add</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {otherItems.length > 0 && (
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-muted)] mb-3">Other Logged Foods</h3>
+            <div className="divide-y divide-[var(--line)]/40">
+              {otherItems.map((log) => (
+                <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
+              ))}
+            </div>
           </div>
         )}
       </div>

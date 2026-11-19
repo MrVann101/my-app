@@ -38,10 +38,15 @@ const SMART_FOOD_RATES: Record<string, number> = {
   oats: 3.89,
 };
 
-export default function LogFoodForm() {
+export default function LogFoodForm({ initialMealType }: { initialMealType?: string } = {}) {
   const [foodName, setFoodName] = useState("");
   const [weightG, setWeightG] = useState(100);
-  const [mealType, setMealType] = useState("snack");
+  const [mealType, setMealType] = useState(() => {
+    if (initialMealType && ["breakfast", "lunch", "dinner", "snack"].includes(initialMealType.toLowerCase())) {
+      return initialMealType.toLowerCase();
+    }
+    return "snack";
+  });
   const [rate, setRate] = useState<NutrientRate>(emptyRate);
   const [labelCalories, setLabelCalories] = useState(0);
   const [labelWeightG, setLabelWeightG] = useState(100);

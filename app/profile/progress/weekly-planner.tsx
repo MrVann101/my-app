@@ -331,39 +331,27 @@ export default function WeeklyPlanner() {
 
   const newPlan = !current && !isCreating;
   const isBusy = isGenerating !== null || isSaving || isDeleting !== null;
-  const activeStep = current?.id ? 3 : current ? 2 : isCreating ? 0 : -1;
 
   return (
     <section className="space-y-6">
-      <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs sm:p-8">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
-          <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--leaf)]">7-day meal planner</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">A week of meals, built around you.</h2>
-            <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
-              Set your calorie target and food preferences. AI will create a Monday-to-Sunday schedule with estimated calories and nutrition for every meal.
+      <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs sm:p-7">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">
+              7-Day Meal Schedule
+            </h2>
+            <p className="mt-1 text-xs text-[var(--ink-muted)]">
+              Personalized Monday-to-Sunday plan calculated to hit your daily nutrition targets.
             </p>
           </div>
           <button
             type="button"
             disabled={isBusy}
             onClick={startNewPlan}
-            className="active-press inline-flex shrink-0 items-center justify-center rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-[var(--on-leaf)] shadow-xs transition hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+            className="hover-lift active-press inline-flex shrink-0 items-center justify-center rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs transition hover:bg-[var(--leaf-deep)] disabled:opacity-50"
           >
-            + Create Plan
+            + Create New Plan
           </button>
-        </div>
-        <div className="mt-6 grid gap-2 sm:grid-cols-4">
-          {["Choose preferences", "Generate 7 days", "Review and customize", "Save and revisit"].map((step, index) => (
-            <div
-              aria-current={activeStep === index ? "step" : undefined}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold ${activeStep >= index ? "bg-[var(--leaf-light)] text-[var(--leaf-ink)]" : "bg-[var(--surface-muted)] text-[var(--ink-muted)]"}`}
-              key={step}
-            >
-              <span className={`grid size-6 shrink-0 place-items-center rounded-full ${activeStep >= index ? "bg-[var(--leaf)] text-[var(--on-leaf)]" : "bg-[var(--line)] text-[var(--ink-muted)]"}`}>{index + 1}</span>
-              {step}
-            </div>
-          ))}
         </div>
       </div>
 
@@ -417,8 +405,8 @@ export default function WeeklyPlanner() {
       {isCreating && (
         <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[var(--leaf)]">Step 2 · Preferences</p>
-            <h3 className="mt-1 text-xl font-bold">What should your week look like?</h3>
+            <p className="text-xs font-bold uppercase tracking-wider text-[var(--leaf)]">Preferences</p>
+            <h3 className="mt-1 text-lg font-bold">What should your week look like?</h3>
           </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-semibold">

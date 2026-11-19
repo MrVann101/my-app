@@ -140,21 +140,21 @@ export default function SuggestionsPage() {
   }
 
   return (
-    <AppShell eyebrow="AI Ideas" title="AI Meal Suggestions">
+    <AppShell eyebrow="AI Ideas" title="AI Suggestions">
       <div className="space-y-6">
         {/* Banner */}
         <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs sm:p-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-base font-bold text-[var(--foreground)]">Matched to Your Remaining Calories</h2>
+            <h2 className="text-base font-bold text-[var(--foreground)]">Smart Meal Ideas</h2>
             <p className="mt-1 text-xs text-[var(--ink-muted)]">
-              These suggestions are generated using AI vision/text models based on what remains in your daily budget.
+              Suggestions sized to fit your remaining calories and macro budget today.
             </p>
           </div>
           <button
             type="button"
             disabled={isLoading}
             onClick={() => void loadSuggestions()}
-            className="active-press inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+            className="hover-lift active-press inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
           >
             <IconSparkles className="size-4" />
             <span>{isLoading ? "Generating..." : "Generate New Ideas"}</span>
@@ -194,7 +194,7 @@ export default function SuggestionsPage() {
             {suggestions.map((suggestion, index) => (
               <div
                 key={`${suggestion.title}-${index}`}
-                className="rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs transition-all hover:border-[var(--leaf)]/50 flex flex-col justify-between"
+                className="hover-lift rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs transition-all hover:border-[var(--leaf)]/50 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">

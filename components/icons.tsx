@@ -232,6 +232,55 @@ export function IconBell(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconChevronLeft(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" {...props}>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+export function IconChevronRight(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" {...props}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+export function IconPlus(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" {...props}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+export function IconCoffee(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" {...props}>
+      <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+      <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+      <line x1="6" y1="1" x2="6" y2="4" />
+      <line x1="10" y1="1" x2="10" y2="4" />
+      <line x1="14" y1="1" x2="14" y2="4" />
+    </svg>
+  );
+}
+
+export function IconUtensils(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" {...props}>
+      <path d="M18 2v20" />
+      <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+      <path d="M18 5v0a3 3 0 0 0-3 3v6" />
+      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+      <path d="M7 2v20" />
+    </svg>
+  );
+}
+
 
 
 

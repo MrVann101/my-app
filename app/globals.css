@@ -149,6 +149,17 @@ button:not(:disabled),
   transform: scale(0.97);
 }
 
+/* Micro-interaction hover lift for action cards and buttons */
+.hover-lift {
+  transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+}
+
 /* Dialog entrance (occasional UI only; command palette opts out). */
 .dialog-enter {
   transition:
