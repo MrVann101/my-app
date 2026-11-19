@@ -16,26 +16,31 @@ export default function MealPlansPage() {
   return (
     <AppShell eyebrow="Cook with what you have" title="Meal Plans">
       <div className="space-y-6">
-        <nav aria-label="Meal navigation" className="inline-flex w-full max-w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs sm:w-auto">
-          {([
-            ["my-plans", "My Plans"],
-            ["find-meals", "Find Meals"],
-            ["public-plans", "Public Plans"],
-            ["manual-plan", "Manual Plan"],
-          ] as const).map(([tab, label]) => (
-            <button
-              aria-current={activeTab === tab ? "page" : undefined}
-              className={`min-w-0 flex-1 whitespace-nowrap rounded-xl px-3 py-2.5 text-center text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:text-sm ${
-                activeTab === tab ? "bg-[var(--leaf)] text-[var(--on-leaf)] shadow-xs" : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
-              }`}
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+        {/* Fixed / Sticky View Segment Controller (Mobile-first pinned navigation) */}
+        <div className="sticky top-[68px] sm:top-[76px] z-20 -mx-4 px-4 py-2 bg-[var(--background)]/90 backdrop-blur-md sm:-mx-8 sm:px-8 md:-mx-10 md:px-10 transition-all">
+          <nav aria-label="Meal navigation" className="grid grid-cols-4 gap-1 w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs">
+            {([
+              ["my-plans", "My Plans"],
+              ["find-meals", "Find Meals"],
+              ["public-plans", "Public Plans"],
+              ["manual-plan", "Manual Plan"],
+            ] as const).map(([tab, label]) => (
+              <button
+                aria-current={activeTab === tab ? "page" : undefined}
+                className={`active-press min-h-[44px] flex items-center justify-center rounded-xl px-1 text-center text-xs font-bold transition-all sm:px-4 sm:text-sm ${
+                  activeTab === tab
+                    ? "bg-[var(--leaf)] text-[var(--on-leaf)] shadow-xs font-extrabold"
+                    : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
+                }`}
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                type="button"
+              >
+                <span className="truncate">{label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
         {postNotice && (
           <p className={`text-sm font-bold ${postNotice.isError ? "text-[var(--coral)]" : "text-[var(--leaf-ink)]"}`} role={postNotice.isError ? "alert" : "status"}>
             {postNotice.message}
@@ -45,7 +50,7 @@ export default function MealPlansPage() {
         {activeTab === "find-meals" && <RecipeFinder />}
         {activeTab === "public-plans" && <PublicPlans onForked={() => setActiveTab("my-plans")} />}
         {activeTab === "manual-plan" && (
-          <section className="mx-auto w-full max-w-4xl rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-sm sm:p-7">
+          <section className="mx-auto w-full max-w-4xl rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm sm:p-7">
             <div className="mb-5 border-b border-[var(--line)] pb-4">
               <h2 className="text-base font-bold text-[var(--foreground)]">Build Meal Plan</h2>
               <p className="mt-0.5 text-xs text-[var(--ink-muted)]">

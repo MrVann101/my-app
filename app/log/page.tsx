@@ -29,7 +29,7 @@ function LogContent() {
       {/* Segmented View Controller Tabs */}
       <nav
         aria-label="Input Method Tabs"
-        className="flex flex-wrap rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs gap-1"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs"
       >
         {[
           { id: "search", label: "Database & Custom", icon: IconLog },

@@ -244,11 +244,11 @@ export default function MyPlans() {
             };
             return (
               <article
-                className="relative mb-4 inline-flex min-h-[400px] w-full break-inside-avoid flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs"
+                className="relative flex flex-col w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-5 shadow-xs transition hover:shadow-sm"
                 key={meal.id}
               >
                 {(recipe?.imageUrl || coverImages[meal.id]) && (
-                  <div className="-mx-5 -mt-5 mb-4 h-48 shrink-0 overflow-hidden border-b border-[var(--line)]">
+                  <div className="-mx-4 -mt-4 sm:-mx-5 sm:-mt-5 mb-4 h-44 sm:h-48 shrink-0 overflow-hidden border-b border-[var(--line)]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={recipe?.imageUrl ?? coverImages[meal.id]}
@@ -290,16 +290,16 @@ export default function MyPlans() {
                     Nutrition information wasn’t provided for this manual recipe.
                   </p>
                 ) : (
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-2">
                     {[
                       ["Calories", `${Math.round(nutrition.calories)} kcal`],
-                      ["Protein", `${Math.round(nutrition.proteinG)} g`],
-                      ["Carbs", `${Math.round(nutrition.carbsG)} g`],
-                      ["Fat", `${Math.round(nutrition.fatG)} g`],
+                      ["Protein", `${Math.round(nutrition.proteinG)}g`],
+                      ["Carbs", `${Math.round(nutrition.carbsG)}g`],
+                      ["Fat", `${Math.round(nutrition.fatG)}g`],
                     ].map(([label, value]) => (
-                      <div className="rounded-xl bg-[var(--surface-muted)] p-2.5" key={label}>
-                        <p className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">{label}</p>
-                        <p className="mt-1 text-xs font-bold tabular-nums text-[var(--foreground)]">{value}</p>
+                      <div className="rounded-xl bg-[var(--surface-muted)] p-2 text-center" key={label}>
+                        <p className="text-[10px] font-bold uppercase text-[var(--ink-muted)] truncate">{label}</p>
+                        <p className="mt-0.5 text-xs font-bold tabular-nums text-[var(--foreground)] truncate">{value}</p>
                       </div>
                     ))}
                   </div>

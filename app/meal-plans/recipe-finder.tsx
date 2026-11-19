@@ -18,16 +18,16 @@ type MealRequestPayload = {
 
 function Nutrition({ nutrition }: { nutrition: Recipe["nutrition"] }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
       {[
         ["Calories", `${Math.round(nutrition.calories)} kcal`],
-        ["Protein", `${Math.round(nutrition.proteinG)} g`],
-        ["Carbs", `${Math.round(nutrition.carbsG)} g`],
-        ["Fat", `${Math.round(nutrition.fatG)} g`],
+        ["Protein", `${Math.round(nutrition.proteinG)}g`],
+        ["Carbs", `${Math.round(nutrition.carbsG)}g`],
+        ["Fat", `${Math.round(nutrition.fatG)}g`],
       ].map(([label, value]) => (
-        <div className="rounded-xl bg-[var(--surface-muted)] p-3" key={label}>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--ink-muted)]">{label}</p>
-          <p className="mt-1 text-sm font-bold tabular-nums text-[var(--foreground)]">{value}</p>
+        <div className="rounded-xl bg-[var(--surface-muted)] p-2 sm:p-2.5 text-center" key={label}>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--ink-muted)] truncate">{label}</p>
+          <p className="mt-0.5 text-xs sm:text-sm font-bold tabular-nums text-[var(--foreground)] truncate">{value}</p>
         </div>
       ))}
     </div>

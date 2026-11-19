@@ -153,7 +153,7 @@ export default function PublicPlans({ onForked }: { onForked?: () => void }) {
   });
 
   return (
-    <section className="space-y-4 rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs">
+    <section className="space-y-4 rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-6 shadow-xs">
       {/* Header Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -207,11 +207,11 @@ export default function PublicPlans({ onForked }: { onForked?: () => void }) {
 
             return (
               <div
-                className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]/80 p-5 shadow-xs backdrop-blur-md transition-shadow hover:shadow-sm"
+                className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-5 shadow-xs transition hover:shadow-sm"
                 key={plan.id}
               >
                 {(plan.recipe?.imageUrl || coverImages[plan.id]) && (
-                  <div className="-mx-5 -mt-5 mb-4 overflow-hidden border-b border-[var(--line)]">
+                  <div className="-mx-4 -mt-4 sm:-mx-5 sm:-mt-5 mb-4 overflow-hidden border-b border-[var(--line)]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={plan.recipe?.imageUrl ?? coverImages[plan.id]}
@@ -252,16 +252,16 @@ export default function PublicPlans({ onForked }: { onForked?: () => void }) {
                   </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-2">
                   {[
                     ["Calories", `${Math.round(nutrition.calories)} kcal`],
-                    ["Protein", `${Math.round(nutrition.proteinG)} g`],
-                    ["Carbs", `${Math.round(nutrition.carbsG)} g`],
-                    ["Fat", `${Math.round(nutrition.fatG)} g`],
+                    ["Protein", `${Math.round(nutrition.proteinG)}g`],
+                    ["Carbs", `${Math.round(nutrition.carbsG)}g`],
+                    ["Fat", `${Math.round(nutrition.fatG)}g`],
                   ].map(([label, value]) => (
-                    <div className="rounded-xl bg-[var(--surface-muted)] p-2.5" key={label}>
-                      <p className="text-[10px] font-bold uppercase text-[var(--ink-muted)]">{label}</p>
-                      <p className="mt-1 text-xs font-bold tabular-nums text-[var(--foreground)]">{value}</p>
+                    <div className="rounded-xl bg-[var(--surface-muted)] p-2 text-center" key={label}>
+                      <p className="text-[10px] font-bold uppercase text-[var(--ink-muted)] truncate">{label}</p>
+                      <p className="mt-0.5 text-xs font-bold tabular-nums text-[var(--foreground)] truncate">{value}</p>
                     </div>
                   ))}
                 </div>

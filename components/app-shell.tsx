@@ -16,12 +16,20 @@ import {
 } from "./icons";
 import ThemeToggle from "./theme-toggle";
 
-const navigation = [
+const desktopNavigation = [
   { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
-  { href: "/log", label: "Quick Log", icon: IconLog, isCenter: true },
-  { href: "/photo", label: "Photo AI", icon: IconCamera },
+  { href: "/log", label: "Quick Log", icon: IconLog },
   { href: "/meal-plans", label: "Meal Plans", icon: IconMealPlans },
   { href: "/weekly-plan", label: "Weekly Plan", icon: IconHistory },
+  { href: "/photo", label: "Photo AI", icon: IconCamera },
+];
+
+const mobileNavigation = [
+  { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
+  { href: "/meal-plans", label: "Meal Plans", icon: IconMealPlans },
+  { href: "/log", label: "Quick Log", icon: IconLog, isCenter: true },
+  { href: "/weekly-plan", label: "Weekly Plan", icon: IconHistory },
+  { href: "/photo", label: "Photo AI", icon: IconCamera },
 ];
 
 const secondaryNavigation = [
@@ -78,7 +86,7 @@ export default function AppShell({
               bitewise
             </Link>
             <nav className="mt-12 space-y-1.5 text-sm font-medium" aria-label="Primary navigation">
-              {navigation.map((item) => {
+              {desktopNavigation.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 return (
@@ -167,7 +175,7 @@ export default function AppShell({
         aria-label="Mobile navigation"
       >
         <div className="mx-auto flex max-w-md items-center justify-around">
-          {navigation.map((item) => {
+          {mobileNavigation.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
