@@ -355,6 +355,13 @@ export default function DashboardContent() {
             <h2 className="text-base font-bold text-[var(--foreground)]">Today&apos;s Meals</h2>
             <p className="text-xs text-[var(--ink-muted)]">Logged entries for today</p>
           </div>
+          <Link
+            href="/log"
+            className="active-press inline-flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-3 py-1.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
+          >
+            <IconLog className="size-3.5" />
+            <span>+ Quick Log</span>
+          </Link>
         </div>
 
         {data.logs && data.logs.length > 0 ? (
@@ -371,7 +378,7 @@ export default function DashboardContent() {
               className="active-press mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
             >
               <IconLog className="size-4" />
-              <span>Log Your First Meal</span>
+              <span>Quick Log Your First Meal</span>
             </Link>
           </div>
         )}

@@ -9,6 +9,28 @@ export class FoodSearchError extends Error {
   }
 }
 
+export function prioritizeGeneralFoods(results: FoodSearchResult[], query: string): FoodSearchResult[] {
+  const q = query.trim().toLowerCase();
+  return [...results].sort((a, b) => {
+    const aIsGeneric = !a.brandName;
+    const bIsGeneric = !b.brandName;
+    if (aIsGeneric && !bIsGeneric) return -1;
+    if (!aIsGeneric && bIsGeneric) return 1;
+
+    const aExact = a.foodName.toLowerCase() === q;
+    const bExact = b.foodName.toLowerCase() === q;
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+
+    const aStarts = a.foodName.toLowerCase().startsWith(q);
+    const bStarts = b.foodName.toLowerCase().startsWith(q);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+
+    return 0;
+  });
+}
+
 export async function searchFoods(query: string): Promise<{ results: FoodSearchResult[]; providerUsed: "usda" | "off" | "none" }> {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) return { results: [], providerUsed: "none" };
@@ -19,14 +41,18 @@ export async function searchFoods(query: string): Promise<{ results: FoodSearchR
 
   try {
     const usdaResults = await searchUsda(normalizedQuery);
-    if (usdaResults.length > 0) return cacheResult(cacheKey, { results: usdaResults, providerUsed: "usda" });
+    if (usdaResults.length > 0) {
+      const filtered = prioritizeGeneralFoods(usdaResults, normalizedQuery).slice(0, 8);
+      return cacheResult(cacheKey, { results: filtered, providerUsed: "usda" });
+    }
   } catch {
     // USDA failure or no results falls through to Open Food Facts.
   }
 
   try {
     const offResults = await searchOpenFoodFacts(normalizedQuery);
-    return cacheResult(cacheKey, { results: offResults, providerUsed: offResults.length > 0 ? "off" : "none" });
+    const filtered = prioritizeGeneralFoods(offResults, normalizedQuery).slice(0, 8);
+    return cacheResult(cacheKey, { results: filtered, providerUsed: filtered.length > 0 ? "off" : "none" });
   } catch (error) {
     throw new FoodSearchError("Food search providers are temporarily unavailable.", error instanceof Error && error.message.includes("rate limit"));
   }

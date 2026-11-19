@@ -38,4 +38,27 @@ describe("food provider search", () => {
     await searchFoods("rice cache");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
+
+  it("prioritizes unbranded general foods and caps to top 8 items", async () => {
+    const multipleFoods = {
+      foods: Array.from({ length: 15 }, (_, i) => ({
+        fdcId: i + 1,
+        description: i === 5 ? "RICE" : `BRANDED SNACK ${i}`,
+        brandName: i === 5 ? null : `Brand ${i}`,
+        foodNutrients: [
+          { nutrientName: "Energy", value: 100 },
+          { nutrientName: "Protein", value: 2 },
+          { nutrientName: "Carbohydrate, by difference", value: 20 },
+          { nutrientName: "Total lipid (fat)", value: 1 },
+        ],
+      })),
+    };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(multipleFoods), { status: 200 }));
+    const result = await searchFoods("rice general priority");
+    expect(result.results.length).toBeLessThanOrEqual(8);
+    // Generic unbranded food should be prioritized first
+    expect(result.results[0].brandName).toBeNull();
+    expect(result.results[0].foodName).toBe("Rice");
+  });
 });

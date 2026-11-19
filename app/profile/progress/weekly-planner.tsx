@@ -47,11 +47,13 @@ function caloriesFor(meal: WeeklyPlanMeal) {
 export default function WeeklyPlanner() {
   const [plans, setPlans] = useState<WeeklyPlan[]>([]);
   const [current, setCurrent] = useState<PlanDraft | null>(null);
+  const [userProfileTarget, setUserProfileTarget] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [savingRecipeTitle, setSavingRecipeTitle] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [planToDelete, setPlanToDelete] = useState<WeeklyPlan | null>(null);
@@ -62,20 +64,37 @@ export default function WeeklyPlanner() {
   const [foodRestrictions, setFoodRestrictions] = useState("");
   const deleteDialogRef = useRef<HTMLDivElement>(null);
 
+  const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
+
   useEffect(() => {
     let active = true;
-    async function loadPlans() {
+    async function loadData() {
       try {
-        const response = await fetch("/api/weekly-plans");
-        if (!response.ok) throw new Error(await responseError(response, "Unable to load saved weekly plans."));
-        const payload: unknown = await response.json();
+        const [plansRes, profileRes] = await Promise.all([
+          fetch("/api/weekly-plans"),
+          fetch("/api/profile").catch(() => null),
+        ]);
+        if (!plansRes.ok) throw new Error(await responseError(plansRes, "Unable to load saved weekly plans."));
+        const payload: unknown = await plansRes.json();
         const savedPlans = weeklyPlanRecordSchema.array().parse(isRecord(payload) ? payload.plans : undefined);
+
+        let profileTarget: number | null = null;
+        if (profileRes && profileRes.ok) {
+          const profilePayload = await profileRes.json().catch(() => null);
+          if (isRecord(profilePayload) && isRecord(profilePayload.profile) && typeof profilePayload.profile.target_calories === "number") {
+            profileTarget = profilePayload.profile.target_calories;
+          }
+        }
+
         if (!active) return;
+        setUserProfileTarget(profileTarget);
         setPlans(savedPlans);
         if (savedPlans[0]) {
           setCurrent(savedPlans[0]);
           setPlanName(savedPlans[0].name);
           setPreferencesForm(savedPlans[0].preferences);
+        } else if (profileTarget) {
+          setCalorieTarget(String(profileTarget));
         }
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason.message : "Unable to load saved weekly plans.");
@@ -83,7 +102,7 @@ export default function WeeklyPlanner() {
         if (active) setIsLoading(false);
       }
     }
-    void loadPlans();
+    void loadData();
     return () => {
       active = false;
     };
@@ -131,10 +150,52 @@ export default function WeeklyPlanner() {
   function startNewPlan() {
     setCurrent(null);
     setPlanName("My Weekly Plan");
-    setPreferencesForm(defaultPreferences);
+    setPreferencesForm(userProfileTarget ? { ...defaultPreferences, dailyCalorieTarget: userProfileTarget } : defaultPreferences);
     setError(null);
     setNotice(null);
     setIsCreating(true);
+  }
+
+  async function saveMealAsRecipe(meal: WeeklyPlanMeal) {
+    setSavingRecipeTitle(meal.title);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/meal-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: meal.title,
+          visibility: "private",
+          recipe: {
+            title: meal.title,
+            description: meal.description,
+            servings: meal.servings || 1,
+            prepTimeMinutes: 15,
+            cookTimeMinutes: 20,
+            ingredients: [
+              { name: meal.title, amount: 1, unit: "serving" }
+            ],
+            instructions: [
+              "Prepare according to recipe plan.",
+              "Serve and enjoy."
+            ],
+            nutrition: {
+              calories: Math.round(meal.nutrition.calories * meal.servings),
+              proteinG: Math.round(meal.nutrition.proteinG * meal.servings),
+              carbsG: Math.round(meal.nutrition.carbsG * meal.servings),
+              fatG: Math.round(meal.nutrition.fatG * meal.servings),
+            },
+          },
+        }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "Unable to save this recipe."));
+      setNotice(`Saved "${meal.title}" to your Recipe collection in Meal Plans.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save recipe.");
+    } finally {
+      setSavingRecipeTitle(null);
+    }
   }
 
   function openPlan(plan: WeeklyPlan) {
@@ -423,42 +484,87 @@ export default function WeeklyPlanner() {
           <div className="grid gap-4 xl:grid-cols-2">
             {current.days.map((day) => {
               const totalCalories = day.meals.reduce((total, meal) => total + caloriesFor(meal), 0);
+              const targetCalories = current.preferences.dailyCalorieTarget || 2000;
+              const calPercent = Math.round((totalCalories / targetCalories) * 100);
+              const isToday = day.day === todayName;
+
               return (
-                <article className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs" key={day.day}>
-                  <header className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
-                    <div>
-                      <h3 className="font-bold">{day.day}</h3>
-                      <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{Math.round(totalCalories).toLocaleString()} kcal estimated</p>
+                <article
+                  className={`overflow-hidden rounded-2xl border bg-[var(--surface)] shadow-xs transition-all ${
+                    isToday ? "border-[var(--leaf)] ring-2 ring-[var(--leaf)]/30" : "border-[var(--line)]"
+                  }`}
+                  key={day.day}
+                >
+                  <header className="border-b border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-[var(--foreground)]">{day.day}</h3>
+                        {isToday && (
+                          <span className="rounded-full bg-[var(--leaf)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--on-leaf)] shadow-2xs">
+                            Today
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isGenerating !== null}
+                        onClick={() => void generate("day", { day: day.day })}
+                        className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-bold text-[var(--leaf-ink)] hover:border-[var(--leaf)] disabled:opacity-50"
+                      >
+                        {isGenerating === `day-${day.day}-` ? "Regenerating..." : "Regenerate day"}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      disabled={isGenerating !== null}
-                      onClick={() => void generate("day", { day: day.day })}
-                      className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--leaf-ink)] hover:border-[var(--leaf)] disabled:opacity-50"
-                    >
-                      {isGenerating === `day-${day.day}-` ? "Regenerating…" : "Regenerate day"}
-                    </button>
+
+                    {/* Day Calorie Target Comparison Bar */}
+                    <div className="mt-3 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-[var(--ink-muted)]">
+                          {Math.round(totalCalories).toLocaleString()} / {targetCalories.toLocaleString()} kcal
+                        </span>
+                        <span className={`tabular-nums font-bold ${calPercent > 105 ? "text-[var(--coral)]" : "text-[var(--leaf)]"}`}>
+                          {calPercent}% target
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--line)]/60">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${calPercent > 105 ? "bg-[var(--coral)]" : "bg-[var(--leaf)]"}`}
+                          style={{ width: `${Math.min(calPercent, 100)}%` }}
+                        />
+                      </div>
+                    </div>
                   </header>
                   <div className="divide-y divide-[var(--line)]/70">
                     {day.meals.map((meal, index) => {
                       const slot = getMealSlotLabel(day.meals.length, index);
                       const isReplacing = isGenerating === `meal-${day.day}-${slot}`;
+                      const isSavingRecipe = savingRecipeTitle === meal.title;
                       return (
                         <div className="p-5" key={`${day.day}-${slot}`}>
                           <div className="flex items-start justify-between gap-3">
-                            <div>
+                            <div className="min-w-0 flex-1">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--leaf)]">{slot}</p>
-                              <h4 className="mt-1 font-bold">{meal.title}</h4>
+                              <h4 className="mt-1 font-bold text-[var(--foreground)]">{meal.title}</h4>
                               <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{meal.description}</p>
                             </div>
-                            <button
-                              type="button"
-                              disabled={isGenerating !== null}
-                              onClick={() => void generate("meal", { day: day.day, slot, currentTitle: meal.title })}
-                              className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[var(--leaf-ink)] hover:bg-[var(--leaf-light)] disabled:opacity-50"
-                            >
-                              {isReplacing ? "Replacing…" : "Replace"}
-                            </button>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <button
+                                type="button"
+                                disabled={isSavingRecipe}
+                                onClick={() => void saveMealAsRecipe(meal)}
+                                className="rounded-lg border border-[var(--line)] bg-[var(--surface-muted)] px-2.5 py-1.5 text-xs font-semibold text-[var(--foreground)] hover:border-[var(--leaf)] hover:text-[var(--leaf)] disabled:opacity-50"
+                                title="Save this meal idea into your Recipe collection in Meal Plans"
+                              >
+                                {isSavingRecipe ? "Saving..." : "+ Recipe"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isGenerating !== null}
+                                onClick={() => void generate("meal", { day: day.day, slot, currentTitle: meal.title })}
+                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[var(--leaf-ink)] hover:bg-[var(--leaf-light)] disabled:opacity-50"
+                              >
+                                {isReplacing ? "Replacing..." : "Replace"}
+                              </button>
+                            </div>
                           </div>
                           <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
                             <div className="grid grid-cols-4 gap-x-4 gap-y-1 text-xs">

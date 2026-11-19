@@ -103,37 +103,57 @@ export default function FoodSearch({
       )}
 
       {results.length > 0 && (
-        <div className="space-y-2.5">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs font-semibold text-[var(--ink-muted)]">
+              Showing top {results.length} general matches
+            </p>
+            <span className="text-[11px] font-medium text-[var(--leaf-ink)]">Verified database</span>
+          </div>
           {results.map((result) => {
             const isChosen = selectedResult?.providerId === result.providerId;
+            const isGeneric = !result.brandName;
             return (
               <div
                 key={`${result.dataSource}-${result.providerId}`}
-                className={`flex items-center justify-between rounded-xl border p-3.5 transition-all ${
+                className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 transition-all ${
                   isChosen
                     ? "border-[var(--leaf)] bg-[var(--leaf-light)] text-[var(--leaf-ink)] shadow-2xs"
-                    : "border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-muted)]"
+                    : "border-[var(--line)] bg-[var(--surface)] hover:border-[var(--leaf)]/40 hover:bg-[var(--surface-muted)]"
                 }`}
               >
-                <div>
-                  <strong className="block text-sm font-bold text-[var(--foreground)]">{result.foodName}</strong>
-                  <span className="mt-1 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
-                    <span>{result.brandName || "Generic food"}</span>
-                    <span>·</span>
-                    <span className="tabular-nums font-bold text-[var(--leaf)]">
-                      {result.defaultWeightG}g portion
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong className="truncate text-sm font-bold text-[var(--foreground)]">{result.foodName}</strong>
+                    {isGeneric ? (
+                      <span className="shrink-0 rounded-md bg-[var(--leaf-light)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--leaf-ink)]">
+                        Whole food
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-md bg-[var(--surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--ink-muted)]">
+                        {result.brandName}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--ink-muted)]">
+                    <span className="tabular-nums font-semibold text-[var(--leaf)]">
+                      {Math.round(result.nutrientRate.caloriesPerG * result.defaultWeightG)} kcal
                     </span>
                     <span>·</span>
-                    <span className="tabular-nums">
-                      {result.nutrientRate.caloriesPerG.toFixed(2)} cal/g
-                    </span>
-                  </span>
+                    <span className="tabular-nums text-[var(--ink-muted)]">{result.defaultWeightG}g portion</span>
+                    <span>·</span>
+                    <span className="tabular-nums text-[var(--ink-muted)]">P {Math.round(result.nutrientRate.proteinPerG * result.defaultWeightG)}g</span>
+                    <span>·</span>
+                    <span className="tabular-nums text-[var(--ink-muted)]">C {Math.round(result.nutrientRate.carbsPerG * result.defaultWeightG)}g</span>
+                    <span>·</span>
+                    <span className="tabular-nums text-[var(--ink-muted)]">F {Math.round(result.nutrientRate.fatPerG * result.defaultWeightG)}g</span>
+                  </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => handleAddResult(result)}
-                  className="active-press inline-flex items-center justify-center gap-1 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
+                  className="active-press shrink-0 inline-flex min-h-11 min-w-16 items-center justify-center rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
                 >
                   <span>+ Add</span>
                 </button>

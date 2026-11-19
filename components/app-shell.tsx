@@ -18,7 +18,7 @@ import ThemeToggle from "./theme-toggle";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
-  { href: "/log", label: "Log Food", icon: IconLog, isCenter: true },
+  { href: "/log", label: "Quick Log", icon: IconLog, isCenter: true },
   { href: "/photo", label: "Photo AI", icon: IconCamera },
   { href: "/meal-plans", label: "Meal Plans", icon: IconMealPlans },
   { href: "/weekly-plan", label: "Weekly Plan", icon: IconHistory },

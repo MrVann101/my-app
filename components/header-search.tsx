@@ -39,10 +39,10 @@ const APP_COMMANDS: AppCommand[] = [
   },
   {
     id: "log",
-    title: "Log Food",
+    title: "Quick Log",
     category: "Features & Tools",
-    keywords: ["log", "food", "meal", "track", "add"],
-    description: "Add a meal using search, text, or saved favorites.",
+    keywords: ["quick", "log", "food", "meal", "track", "add", "fast"],
+    description: "Quickly log meals, search database, or pick from saved recipes.",
     href: "/log",
     icon: IconMealPlans,
   },

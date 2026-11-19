@@ -19,12 +19,26 @@ export class FoodProviderError extends Error {
 
 const requestTimeoutMs = 5_000;
 
+export function formatFoodTitle(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+  if (trimmed === trimmed.toUpperCase()) {
+    return trimmed
+      .toLowerCase()
+      .split(", ")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(", ");
+  }
+  return trimmed;
+}
+
 export async function searchUsda(query: string): Promise<FoodSearchResult[]> {
   const usdaApiKey = getUsdaApiKey();
   const url = new URL("https://api.nal.usda.gov/fdc/v1/foods/search");
   url.searchParams.set("api_key", usdaApiKey);
   url.searchParams.set("query", query);
-  url.searchParams.set("pageSize", "20");
+  url.searchParams.set("pageSize", "15");
+  url.searchParams.set("dataType", "Foundation,SR Legacy,Survey (FNDDS),Branded");
 
   const response = await fetchWithTimeout(url);
   if (response.status === 429) throw new FoodProviderError("usda", "USDA rate limit reached.", true);
@@ -71,7 +85,7 @@ function normalizeUsdaFood(food: unknown): FoodSearchResult[] {
     sugarPerG: valueFor(["sugars, total including nlea", "sugars"]) / 100,
   });
 
-  return [{ providerId: String(food.fdcId), foodName: food.description, brandName: typeof food.brandName === "string" ? food.brandName : null, defaultWeightG: 100, nutrientRate: rate, dataSource: "usda" }];
+  return [{ providerId: String(food.fdcId), foodName: formatFoodTitle(food.description), brandName: typeof food.brandName === "string" ? food.brandName : null, defaultWeightG: 100, nutrientRate: rate, dataSource: "usda" }];
 }
 
 function normalizeOffProduct(product: unknown): FoodSearchResult[] {
