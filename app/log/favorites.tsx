@@ -57,7 +57,7 @@ export default function Favorites({ onLogged }: { onLogged?: () => void }) {
                 <strong className="block text-xs font-bold text-[var(--foreground)]">{favorite.food_name}</strong>
                 <span className="text-[11px] text-[var(--ink-muted)]">{favorite.default_weight_g}g · used {favorite.use_count} times</span>
               </span>
-              <button className="rounded-lg bg-[var(--leaf)] px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-[var(--leaf-deep)]" onClick={() => void relog(favorite)} type="button">
+              <button className="rounded-lg bg-[var(--leaf)] px-3 py-1.5 text-xs font-bold text-[var(--on-leaf)] shadow-2xs hover:bg-[var(--leaf-deep)]" onClick={() => void relog(favorite)} type="button">
                 Log portion
               </button>
             </div>

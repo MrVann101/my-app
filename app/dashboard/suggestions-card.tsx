@@ -9,7 +9,7 @@ export default function SuggestionsCard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="grid size-10 place-items-center rounded-xl bg-[var(--leaf-light)] text-[var(--leaf)] shrink-0">
-            <IconSparkles className="size-5" />
+            <IconSparkles aria-hidden="true" className="size-5" />
           </div>
           <div>
             <h2 className="text-base font-bold text-[var(--foreground)]">Need a Meal Idea?</h2>
@@ -21,9 +21,9 @@ export default function SuggestionsCard() {
 
         <Link
           href="/suggestions"
-          className="active-press inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] shrink-0"
+          className="active-press inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] shrink-0"
         >
-          <IconSparkles className="size-4" />
+          <IconSparkles aria-hidden="true" className="size-4" />
           <span>Explore AI Suggestions</span>
         </Link>
       </div>

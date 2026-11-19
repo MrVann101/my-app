@@ -34,13 +34,11 @@ export default function TextFoodForm() {
     setError(null);
     setStatus(null);
     setIsSaving(true);
-    let savedCount = 0;
     try {
-      for (const item of items) {
-        const response = await fetch("/api/food/log", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+      const response = await fetch("/api/food/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(items.map((item) => ({
             logDate: getBrowserDate(),
             timezone: getBrowserTimezone(),
             mealType,
@@ -50,22 +48,17 @@ export default function TextFoodForm() {
             source: "ai_text",
             dataSource: provider,
             aiConfidence: item.confidence,
-          }),
-        });
-        const payload = await response.json();
-        if (!response.ok) {
-          setError(payload.error?.message ?? "Unable to save these food logs.");
-          if (savedCount > 0) setStatus(`Saved ${savedCount} of ${items.length} food items. Retry the remaining items.`);
-          return;
-        }
-
-        savedCount += 1;
-        setItems((current) => current.filter((currentItem) => currentItem !== item));
+          }))),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error?.message ?? "Unable to save these food logs.");
+        return;
       }
-      setStatus(`Saved ${savedCount} food items to today's journal.`);
+      setItems([]);
+      setStatus(`Saved ${payload.logs?.length ?? items.length} food items to today's journal.`);
     } catch {
       setError("Unable to save these food logs. Check your connection and try again.");
-      if (savedCount > 0) setStatus(`Saved ${savedCount} of ${items.length} food items. Retry the remaining items.`);
     } finally {
       setIsSaving(false);
     }
@@ -83,20 +76,20 @@ export default function TextFoodForm() {
         />
       </label>
       <button
-        className="h-11 w-full rounded-xl bg-[var(--leaf)] font-semibold text-white disabled:opacity-50"
+        className="h-11 w-full rounded-xl bg-[var(--leaf)] font-semibold text-[var(--on-leaf)] disabled:opacity-50"
         disabled={isAnalyzing || isSaving || description.trim().length < 3}
         onClick={analyze}
         type="button"
       >
         {isAnalyzing ? "Parsing meal..." : "Review estimate"}
       </button>
-      {error && <p className="rounded-xl bg-[#fff0eb] p-4 text-sm text-[var(--coral)]" role="alert">{error}</p>}
-      {status && <p className="rounded-xl bg-[var(--leaf-light)] p-4 text-sm text-[var(--leaf-deep)]" role="status">{status}</p>}
+      {error && <p className="rounded-xl bg-[var(--coral-soft)] p-4 text-sm text-[var(--coral)]" role="alert">{error}</p>}
+      {status && <p className="rounded-xl bg-[var(--leaf-light)] p-4 text-sm text-[var(--leaf-ink)]" role="status">{status}</p>}
       {items.length > 0 && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-semibold">Review parsed foods</p>
-            <span className="rounded-full bg-[#eef7ee] px-3 py-1 text-xs text-[var(--leaf-deep)]">AI estimate · {provider}</span>
+            <span className="rounded-full bg-[var(--leaf-light)] px-3 py-1 text-xs text-[var(--leaf-ink)]">AI estimate · {provider}</span>
           </div>
           <label className="block text-sm font-medium">
             Meal Event
@@ -135,7 +128,7 @@ export default function TextFoodForm() {
             );
           })}
           <button
-            className="h-11 w-full rounded-xl bg-[var(--leaf-deep)] font-semibold text-white disabled:opacity-50"
+            className="h-11 w-full rounded-xl bg-[var(--leaf-deep)] font-semibold text-[var(--on-leaf)] disabled:opacity-50"
             disabled={isSaving}
             onClick={() => void saveAll()}
             type="button"

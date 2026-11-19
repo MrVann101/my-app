@@ -154,7 +154,7 @@ export default function SuggestionsPage() {
             type="button"
             disabled={isLoading}
             onClick={() => void loadSuggestions()}
-            className="active-press inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+            className="active-press inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
           >
             <IconSparkles className="size-4" />
             <span>{isLoading ? "Generating..." : "Generate New Ideas"}</span>
@@ -162,7 +162,7 @@ export default function SuggestionsPage() {
         </div>
 
         {loggedStatus && (
-          <div className="rounded-2xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-deep)]">
+          <div className="rounded-2xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-ink)]">
             {loggedStatus}
           </div>
         )}
@@ -207,14 +207,14 @@ export default function SuggestionsPage() {
                 </div>
 
                 <div className="mt-5 border-t border-[var(--line)]/50 pt-4 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[var(--leaf-deep)]">
+                  <span className="text-xs font-bold text-[var(--leaf-ink)]">
                     ~{Math.round(suggestion.proteinG)}g Protein
                   </span>
                   <button
                     type="button"
                     disabled={loggingSuggestions.has(suggestion) || loggedSuggestions.has(suggestion)}
                     onClick={() => void logSuggestion(suggestion)}
-                    className="active-press inline-flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="active-press inline-flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <IconLog className="size-3.5" />
                     <span>

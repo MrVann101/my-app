@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { IconShieldCheck } from "@/components/icons";
 
 type Badge = { badge_key: string; label: string; earned_at: string };
 
@@ -37,7 +38,7 @@ export default function Badges() {
               className="inline-flex items-center gap-1.5 rounded-full border border-[var(--leaf)]/20 bg-[var(--leaf-light)] px-3 py-1.5 text-xs font-bold text-[var(--leaf)] shadow-2xs"
               key={badge.badge_key}
             >
-              <span>🏆</span>
+              <IconShieldCheck className="size-4" aria-hidden="true" />
               <span>{badge.label}</span>
             </span>
           ))}

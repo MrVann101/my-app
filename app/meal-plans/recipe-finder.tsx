@@ -34,6 +34,16 @@ function Nutrition({ nutrition }: { nutrition: Recipe["nutrition"] }) {
   );
 }
 
+function suggestionKey(suggestion: RecipeSuggestion) {
+  return [
+    suggestion.title,
+    suggestion.description,
+    suggestion.cookTimeMinutes,
+    suggestion.servings,
+    suggestion.nutrition.calories,
+  ].join("|");
+}
+
 export default function RecipeFinder() {
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [ingredientInput, setIngredientInput] = useState("");
@@ -232,7 +242,7 @@ export default function RecipeFinder() {
             />
             <button
               aria-label="Add ingredient"
-              className="absolute right-1.5 top-1.5 grid size-9 place-items-center rounded-lg text-[var(--leaf-deep)] hover:bg-[var(--leaf-light)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="absolute right-1.5 top-1.5 grid size-9 place-items-center rounded-lg text-[var(--leaf-ink)] hover:bg-[var(--leaf-light)] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!ingredientInput.trim() || spellingSuggestions.length > 0 || unrecognizedIngredients.length > 0}
               type="submit"
             >
@@ -240,7 +250,7 @@ export default function RecipeFinder() {
             </button>
             {ingredientSuggestions.length > 0 && !ingredientInput.includes(",") && (
               <ul className="absolute inset-x-0 z-10 mt-1 max-h-52 overflow-y-auto rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 shadow-lg" aria-label="Ingredient suggestions">
-                {ingredientSuggestions.slice(0, 1).map((ingredient) => (
+                {ingredientSuggestions.slice(0, 6).map((ingredient) => (
                   <li key={ingredient}>
                     <button
                       className="w-full rounded-lg px-3 py-2 text-left text-sm capitalize hover:bg-[var(--surface-muted)]"
@@ -278,11 +288,11 @@ export default function RecipeFinder() {
           {ingredients.length > 0 && <p className="mb-2 text-xs font-bold text-[var(--ink-muted)]">Selected ingredients</p>}
           <div className="flex flex-wrap gap-2">
             {ingredients.map((ingredient) => (
-              <span className="inline-flex items-center gap-2 rounded-full bg-[var(--leaf-light)] px-3 py-1.5 text-xs font-semibold text-[var(--leaf-deep)]" key={ingredient}>
+              <span className="inline-flex items-center gap-2 rounded-full bg-[var(--leaf-light)] px-3 py-1.5 text-xs font-semibold text-[var(--leaf-ink)]" key={ingredient}>
                 {ingredient}
                 <button
                   aria-label={`Remove ${ingredient}`}
-                  className="rounded-full text-[var(--leaf-deep)] hover:text-[var(--coral)]"
+                  className="rounded-full text-[var(--leaf-ink)] hover:text-[var(--coral)]"
                   onClick={() => {
                     generationRequestId.current += 1;
                     suggestionRequestId.current += 1;
@@ -313,7 +323,7 @@ export default function RecipeFinder() {
         </div>
 
         <button
-          className="mt-5 h-12 w-full rounded-xl bg-[var(--leaf)] px-5 text-sm font-bold text-white hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          className="mt-5 h-12 w-full rounded-xl bg-[var(--leaf)] px-5 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           disabled={ingredients.length === 0 || isSuggesting || isGenerating}
           onClick={() => void findMeals()}
           type="button"
@@ -323,7 +333,7 @@ export default function RecipeFinder() {
       </section>
 
       {(error || status) && (
-        <p className={`rounded-xl border p-4 text-sm font-semibold ${error ? "border-[var(--coral)]/30 bg-[var(--coral)]/10 text-[var(--coral)]" : "border-[var(--leaf)]/30 bg-[var(--leaf-light)] text-[var(--leaf-deep)]"}`} role={error ? "alert" : "status"}>
+        <p className={`rounded-xl border p-4 text-sm font-semibold ${error ? "border-[var(--coral)]/30 bg-[var(--coral)]/10 text-[var(--coral)]" : "border-[var(--leaf)]/30 bg-[var(--leaf-light)] text-[var(--leaf-ink)]"}`} role={error ? "alert" : "status"}>
           {error ?? status}
         </p>
       )}
@@ -334,15 +344,15 @@ export default function RecipeFinder() {
             <h2 className="text-lg font-bold text-[var(--foreground)]" id="meal-suggestions-title">Meals you can make</h2>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">Choose one to get the ingredient amounts and step-by-step instructions.</p>
           </div>
-          <div className="columns-1 gap-4 lg:columns-2">
-            {suggestions.map((suggestion, index) => {
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            {suggestions.map((suggestion) => {
               const isSelected = selectedSuggestion === suggestion;
               return (
-                <div className="mb-4 inline-block w-full break-inside-avoid" key={`${suggestion.title}-${index}`}>
+                <div className="mb-4 inline-block w-full break-inside-avoid" key={suggestionKey(suggestion)}>
                   <article
-                    className={`rounded-2xl border bg-[var(--surface)] p-5 shadow-xs ${isSelected ? "border-[var(--leaf)] ring-1 ring-[var(--leaf)]" : "h-[340px] border-[var(--line)]"}`}
+                    className={`rounded-2xl border bg-[var(--surface)] p-5 shadow-xs ${isSelected ? "border-[var(--leaf)] ring-1 ring-[var(--leaf)]" : "border-[var(--line)]"}`}
                   >
-                    <div className="flex h-[300px] flex-col">
+                    <div className="flex flex-col">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="line-clamp-1 text-base font-bold text-[var(--foreground)]">{suggestion.title}</h3>
@@ -360,7 +370,7 @@ export default function RecipeFinder() {
                       </p>
                       <div className="mt-6">
                         <button
-                          className="h-10 w-full rounded-xl border border-[var(--leaf)] text-sm font-bold text-[var(--leaf-deep)] hover:bg-[var(--leaf-light)] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="h-10 w-full rounded-xl border border-[var(--leaf)] text-sm font-bold text-[var(--leaf-ink)] hover:bg-[var(--leaf-light)] disabled:cursor-not-allowed disabled:opacity-50"
                           disabled={isSelected && (isGenerating || Boolean(selectedRecipe))}
                           onClick={() => void chooseMeal(suggestion)}
                           type="button"
@@ -377,12 +387,12 @@ export default function RecipeFinder() {
                       <div className="mt-5 border-t border-[var(--line)] pt-5">
                         {!selectedRecipe ? (
                           <div>
-                            <p className="text-sm font-semibold text-[var(--leaf-deep)]" role="status">
+                            <p className="text-sm font-semibold text-[var(--leaf-ink)]" role="status">
                               {isGenerating ? "Generating this recipe..." : "Recipe generation did not finish."}
                             </p>
                             {!isGenerating && (
                               <button
-                                className="mt-3 h-10 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-white hover:bg-[var(--leaf-deep)]"
+                                className="mt-3 h-10 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)]"
                                 onClick={() => void chooseMeal(suggestion)}
                                 type="button"
                               >
@@ -425,7 +435,7 @@ export default function RecipeFinder() {
                                 <ol className="mt-3 space-y-3">
                                   {selectedRecipe.steps.map((step, stepIndex) => (
                                     <li className="flex gap-3 text-sm leading-6 text-[var(--foreground)]" key={`${step}-${stepIndex}`}>
-                                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--leaf-light)] text-xs font-bold text-[var(--leaf-deep)]">{stepIndex + 1}</span>
+                                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--leaf-light)] text-xs font-bold text-[var(--leaf-ink)]">{stepIndex + 1}</span>
                                       {step}
                                     </li>
                                   ))}
@@ -433,7 +443,7 @@ export default function RecipeFinder() {
                               </div>
                             </div>
                             <button
-                              className="mt-6 h-11 w-full rounded-xl bg-[var(--leaf)] px-5 text-sm font-bold text-white hover:bg-[var(--leaf-deep)] disabled:opacity-50 sm:w-auto"
+                              className="mt-6 h-11 w-full rounded-xl bg-[var(--leaf)] px-5 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:opacity-50 sm:w-auto"
                               disabled={isSaving}
                               onClick={() => void saveMeal()}
                               type="button"

@@ -3,6 +3,7 @@ import {
   WEEK_DAYS,
   getMealSlotLabel,
   weeklyPlanPreferencesSchema,
+  weeklyPlanRecordSchema,
   weeklyPlanScheduleSchema,
 } from "./weekly-plan-schemas";
 
@@ -46,5 +47,17 @@ describe("weekly plan schemas", () => {
       "Snack 1",
     ]);
     expect(getMealSlotLabel(2, 1)).toBe("Dinner");
+  });
+
+  it("accepts Supabase timestamps with either UTC Z or an explicit offset", () => {
+    const record = {
+      id: 1,
+      name: "My Week",
+      preferences,
+      days: makeSchedule(),
+      created_at: "2026-11-16T04:00:00+00:00",
+      updated_at: "2026-11-16T04:00:00Z",
+    };
+    expect(weeklyPlanRecordSchema.parse(record)).toEqual(record);
   });
 });

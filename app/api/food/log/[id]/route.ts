@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiErrorResponse, ApiError } from "@/lib/api";
-import { foodWeightSchema } from "@/lib/food";
+import { computeNutrients, foodWeightSchema } from "@/lib/food";
 import { createClient } from "@/lib/supabase/server";
 import { updateStreak } from "@/lib/streaks";
 
@@ -18,7 +18,27 @@ export async function PATCH(request: Request, context: Context) {
     if (existingError) throw new ApiError(400, existingError.message, "food_log_fetch_failed");
     if (!existing) throw new ApiError(404, "Food log not found.", "food_log_not_found");
 
-    const { data: log, error } = await supabase.from("food_logs").update({ weight_g: body.weightG }).eq("id", logId).eq("user_id", user.id).select().single();
+    const { data: source, error: sourceError } = await supabase.from("food_logs").select("calories_per_g, protein_per_g, carbs_per_g, fat_per_g, fiber_per_g, sodium_per_g, sugar_per_g").eq("id", logId).eq("user_id", user.id).single();
+    if (sourceError) throw new ApiError(400, sourceError.message, "food_log_fetch_failed");
+    const computed = computeNutrients(body.weightG, {
+      caloriesPerG: Number(source.calories_per_g),
+      proteinPerG: Number(source.protein_per_g),
+      carbsPerG: Number(source.carbs_per_g),
+      fatPerG: Number(source.fat_per_g),
+      fiberPerG: Number(source.fiber_per_g),
+      sodiumPerG: Number(source.sodium_per_g),
+      sugarPerG: Number(source.sugar_per_g),
+    });
+    const { data: log, error } = await supabase.from("food_logs").update({
+      weight_g: body.weightG,
+      calories: computed.calories,
+      protein_g: computed.proteinG,
+      carbs_g: computed.carbsG,
+      fat_g: computed.fatG,
+      fiber_g: computed.fiberG,
+      sodium_mg: computed.sodiumMg,
+      sugar_g: computed.sugarG,
+    }).eq("id", logId).eq("user_id", user.id).select().single();
     if (error) throw new ApiError(400, error.message, "food_log_update_failed");
     await refreshSummaryAndStreak(supabase, existing.log_date);
     return Response.json({ log });

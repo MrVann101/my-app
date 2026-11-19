@@ -49,7 +49,6 @@ function getCreatorInitials(username: string) {
 
 export default function PublicPlans({ onForked }: { onForked?: () => void }) {
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [coverImages, setCoverImages] = useState<Record<number, string>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -80,9 +79,6 @@ export default function PublicPlans({ onForked }: { onForked?: () => void }) {
     const timer = window.setTimeout(() => {
       void load();
       if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("bitewise_user_avatar");
-        if (saved) setUserAvatar(saved);
-
         const map: Record<number, string> = {};
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -198,7 +194,7 @@ export default function PublicPlans({ onForked }: { onForked?: () => void }) {
         ) : (
           filteredPlans.map((plan) => {
             const creatorAvatar = typeof window !== "undefined"
-              ? (localStorage.getItem(`bitewise_avatar_${plan.creator_username}`) || (plan.creator_username === "alex_demo" ? userAvatar : null))
+              ? localStorage.getItem(`bitewise_avatar_${plan.creator_username}`)
               : null;
             const gradientClass = getCreatorGradient(plan.creator_username || "");
             const initials = getCreatorInitials(plan.creator_username || "");
@@ -278,7 +274,7 @@ export default function PublicPlans({ onForked }: { onForked?: () => void }) {
                     <button
                       aria-controls={`public-recipe-${plan.id}`}
                       aria-expanded={viewingPlanId === plan.id}
-                      className="ml-3 font-bold text-[var(--leaf-deep)]"
+                      className="ml-3 font-bold text-[var(--leaf-ink)]"
                       onClick={() => setViewingPlanId((current) => current === plan.id ? null : plan.id)}
                       type="button"
                     >
@@ -310,7 +306,7 @@ export default function PublicPlans({ onForked }: { onForked?: () => void }) {
                 )}
                 <div className="mt-4 flex justify-end">
                   <button
-                    className="active-press inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-white shadow-2xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+                    className="active-press inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-[var(--on-leaf)] shadow-2xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
                     disabled={forkingId === plan.id}
                     onClick={() => void fork(plan.id, plan.name)}
                     type="button"

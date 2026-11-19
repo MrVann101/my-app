@@ -30,8 +30,8 @@ export default function AppearancePage() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-muted)]">Active Design System</h3>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-4">
-                <p className="font-bold text-[var(--sky)]">Nordic Ocean Dark</p>
-                <p className="mt-1 text-[var(--ink-muted)]">Deep midnight slate background (`#030712`) with ice blue accents (`#38bdf8`).</p>
+                <p className="font-bold text-[var(--leaf)]">Nordic Ocean Dark</p>
+                <p className="mt-1 text-[var(--ink-muted)]">Deep midnight slate background (`#0b1320`) with ice blue accents (`#38bdf8`).</p>
               </div>
               <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-4">
                 <p className="font-bold text-[var(--foreground)]">Nordic Frost Light</p>

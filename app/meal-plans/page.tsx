@@ -26,7 +26,7 @@ export default function MealPlansPage() {
             <button
               aria-current={activeTab === tab ? "page" : undefined}
               className={`min-w-0 flex-1 whitespace-nowrap rounded-xl px-3 py-2.5 text-center text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:text-sm ${
-                activeTab === tab ? "bg-[var(--leaf)] text-white shadow-xs" : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
+                activeTab === tab ? "bg-[var(--leaf)] text-[var(--on-leaf)] shadow-xs" : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
               }`}
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -37,7 +37,7 @@ export default function MealPlansPage() {
           ))}
         </nav>
         {postNotice && (
-          <p className={`text-sm font-bold ${postNotice.isError ? "text-[var(--coral)]" : "text-[var(--leaf-deep)]"}`} role={postNotice.isError ? "alert" : "status"}>
+          <p className={`text-sm font-bold ${postNotice.isError ? "text-[var(--coral)]" : "text-[var(--leaf-ink)]"}`} role={postNotice.isError ? "alert" : "status"}>
             {postNotice.message}
           </p>
         )}
@@ -49,7 +49,7 @@ export default function MealPlansPage() {
             <div className="mb-5 border-b border-[var(--line)] pb-4">
               <h2 className="text-lg font-bold text-[var(--foreground)]">Build a manual meal plan</h2>
               <p className="mt-1 text-sm text-[var(--ink-muted)]">
-                Add ingredients and cooking steps. AI will estimate the nutrition and add one serving to today&apos;s calorie tracker when you post.
+                Add ingredients and cooking steps. AI will estimate the nutrition; you can add a serving to today&apos;s tracker from My Plans when you are ready.
               </p>
             </div>
             <PlanBuilder onPlanCreated={(visibility, message, isError) => {

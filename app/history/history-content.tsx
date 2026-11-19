@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IconHistory, IconLog } from "@/components/icons";
+import FoodLogRow from "@/components/food-log-row";
 
 type Log = { id: number; log_date: string; food_name: string; meal_type: string; weight_g: number; calories: number; is_recipe?: boolean };
 
@@ -29,6 +30,7 @@ export default function HistoryContent() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     fetch(`/api/food/log?from=${dateOffset(-29)}&to=${dateOffset(0)}`)
@@ -42,7 +44,7 @@ export default function HistoryContent() {
         setIsLoading(false);
         setError(reason instanceof Error ? reason.message : "Unable to load history.");
       });
-  }, []);
+  }, [refreshKey]);
 
   if (error)
     return (
@@ -87,7 +89,7 @@ export default function HistoryContent() {
           </p>
           <Link
             href="/log"
-            className="active-press mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)]"
+            className="active-press mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
           >
             <IconLog className="size-4" />
             <span>Log a Meal Now</span>
@@ -113,19 +115,7 @@ export default function HistoryContent() {
 
               <div className="mt-4 divide-y divide-[var(--line)]/50">
                 {dayLogs.map((log) => (
-                  <div className="flex items-center justify-between py-3 text-sm" key={log.id}>
-                    <div>
-                      <p className="font-bold text-[var(--foreground)]">{log.food_name}</p>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
-                        <span className="capitalize font-medium text-[var(--leaf)]">{log.meal_type}</span>
-                        <span>·</span>
-                        <span>{log.is_recipe ? `${log.weight_g} serving${log.weight_g === 1 ? "" : "s"}` : `${log.weight_g}g portion`}</span>
-                      </div>
-                    </div>
-                    <span className="tabular-nums font-bold text-[var(--foreground)]">
-                      {Math.round(Number(log.calories))} kcal
-                    </span>
-                  </div>
+                  <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
                 ))}
               </div>
             </section>

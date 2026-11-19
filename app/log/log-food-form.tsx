@@ -4,6 +4,8 @@ import { FormEvent, useMemo, useState } from "react";
 import { computeNutrients, getWeightWarning } from "@/lib/food";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import type { NutrientRate } from "@/lib/types";
+import { IconStar } from "@/components/icons";
+import FoodSearch, { type SearchResult } from "./food-search";
 
 const emptyRate: NutrientRate = {
   caloriesPerG: 0,
@@ -45,6 +47,10 @@ export default function LogFoodForm() {
   const [labelWeightG, setLabelWeightG] = useState(100);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingFavorite, setIsSavingFavorite] = useState(false);
+  const [source, setSource] = useState<"manual" | "database">("manual");
+  const [dataSource, setDataSource] = useState<"usda" | "off" | null>(null);
 
   const effectiveRate = useMemo(
     () => ({
@@ -58,8 +64,10 @@ export default function LogFoodForm() {
   const weightWarning = getWeightWarning(weightG);
   const hasNutritionPreview = foodName.trim().length > 0 && effectiveRate.caloriesPerG > 0;
 
-  function handleFoodNameChange(name: string) {
+  const handleFoodNameChange = (name: string) => {
     setFoodName(name);
+    setSource("manual");
+    setDataSource(null);
     const lower = name.trim().toLowerCase();
     const matchedRate = SMART_FOOD_RATES[lower];
     if (matchedRate) {
@@ -67,7 +75,21 @@ export default function LogFoodForm() {
       setLabelCalories(Math.round(matchedRate * 100));
       setRate((prev) => ({ ...prev, caloriesPerG: matchedRate }));
     }
-  }
+
+  };
+
+  const handleSearchSelect = (result: SearchResult | null) => {
+    if (!result) return;
+    setFoodName(result.foodName);
+    setWeightG(result.defaultWeightG);
+    setLabelWeightG(100);
+    setLabelCalories(Math.round(result.nutrientRate.caloriesPerG * 100));
+    setRate(result.nutrientRate);
+    setSource("database");
+    setDataSource(result.dataSource);
+    setError(null);
+    setSaved(null);
+  };
 
   function adjustWeight(delta: number) {
     setWeightG((prev) => Math.max(1, Math.min(100000, prev + delta)));
@@ -77,8 +99,10 @@ export default function LogFoodForm() {
     event.preventDefault();
     setError(null);
     setSaved(null);
+    setIsSubmitting(true);
 
-    const response = await fetch("/api/food/log", {
+    try {
+      const response = await fetch("/api/food/log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -88,47 +112,62 @@ export default function LogFoodForm() {
         foodName,
         weightG,
         nutrientRate: effectiveRate,
-        source: "manual",
-        dataSource: null,
+        source,
+        dataSource,
         aiConfidence: null,
       }),
-    });
+      });
 
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error?.message ?? "Unable to save this food log.");
-      return;
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error?.message ?? "Unable to save this food log.");
+        return;
+      }
+
+      setSaved(`Successfully logged "${foodName}" (${Math.round(computed.calories)} kcal) to today's journal.`);
+
+      setFoodName("");
+      setRate(emptyRate);
+      setLabelCalories(0);
+      setLabelWeightG(100);
+      setWeightG(100);
+      setSource("manual");
+      setDataSource(null);
+    } catch {
+      setError("Unable to save this food log. Check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setSaved(`✓ Successfully logged "${foodName}" (${Math.round(computed.calories)} kcal) to today's journal!`);
-
-    // Reset Form state after logging
-    setFoodName("");
-    setRate(emptyRate);
-    setLabelCalories(0);
-    setLabelWeightG(100);
-    setWeightG(100);
   }
 
   async function saveFavorite() {
     setError(null);
-    const response = await fetch("/api/favorites", {
+    setIsSavingFavorite(true);
+    try {
+      const response = await fetch("/api/favorites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ foodName, defaultWeightG: weightG, nutrientRate: effectiveRate }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error?.message ?? "Unable to save favorite.");
-      return;
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error?.message ?? "Unable to save favorite.");
+        return;
+      }
+      setSaved(`Saved "${payload.favorite.food_name}" as a favorite.`);
+    } catch {
+      setError("Unable to save favorite. Check your connection and try again.");
+    } finally {
+      setIsSavingFavorite(false);
     }
-    setSaved(`⭐ Saved "${payload.favorite.food_name}" as a favorite.`);
   }
 
   return (
     <div className="space-y-6">
+      <FoodSearch onSelect={handleSearchSelect} onAdd={handleSearchSelect} />
+
       {saved && (
-        <div className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-deep)]" role="status">
+        <div className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-ink)]" role="status">
           {saved}
         </div>
       )}
@@ -263,19 +302,20 @@ export default function LogFoodForm() {
 
         <div className="grid gap-2.5 sm:grid-cols-2">
           <button
-            className="active-press h-12 rounded-xl bg-[var(--leaf)] text-sm font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
-            disabled={!foodName || effectiveRate.caloriesPerG <= 0}
+            className="active-press h-12 rounded-xl bg-[var(--leaf)] text-sm font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+            disabled={isSubmitting || isSavingFavorite || !foodName || effectiveRate.caloriesPerG <= 0}
             type="submit"
           >
             Log to Today&apos;s Journal
           </button>
           <button
             className="active-press h-12 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-sm font-bold text-[var(--leaf)] shadow-2xs hover:bg-[var(--surface-muted)] disabled:opacity-50"
-            disabled={!foodName || effectiveRate.caloriesPerG <= 0}
+            disabled={isSubmitting || isSavingFavorite || !foodName || effectiveRate.caloriesPerG <= 0}
             onClick={() => void saveFavorite()}
             type="button"
           >
-            ⭐ Save as Favorite
+            <IconStar aria-hidden="true" className="mr-1 inline size-4" />
+            {isSavingFavorite ? "Saving favorite..." : "Save as Favorite"}
           </button>
         </div>
       </form>

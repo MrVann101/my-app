@@ -51,8 +51,8 @@ export default function OnboardingForm() {
       <label className="block text-sm font-medium">Goal<select className="mt-2 h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-4 outline-none focus:border-[var(--leaf)]" name="goal" defaultValue="lose" required><option value="lose">Lose weight</option><option value="maintain">Maintain weight</option><option value="gain">Gain weight</option></select></label>
       <p className="rounded-xl bg-[var(--surface-muted)] px-4 py-3 text-xs leading-5 text-[var(--ink-muted)]">Timezone detected automatically: <strong className="font-medium text-[var(--foreground)]">{timezone}</strong>. You do not need to choose it manually.</p>
       {error && <p className="text-sm text-[var(--coral)]" role="alert">{error}</p>}
-      {result && <div className="rounded-2xl border border-[#c9dfc9] bg-[#eef7ee] p-4 text-sm text-[var(--leaf-deep)]" role="status"><strong className="font-semibold">Starting target: {result.targetCalories.toLocaleString()} kcal/day.</strong>{result.safetyFloorApplied && <p className="mt-1 text-xs leading-5">We applied the minimum safety floor for your selected estimate.</p>}</div>}
-      <button className="h-12 w-full rounded-xl bg-[var(--leaf)] font-semibold text-white hover:bg-[var(--leaf-deep)] disabled:cursor-wait disabled:opacity-60" disabled={isSubmitting} type="submit">{isSubmitting ? "Saving your starting point..." : "Continue to Bitewise"}</button>
+      {result && <div className="rounded-2xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-sm text-[var(--leaf-ink)]" role="status"><strong className="font-semibold">Starting target: {result.targetCalories.toLocaleString()} kcal/day.</strong>{result.safetyFloorApplied && <p className="mt-1 text-xs leading-5">We applied the minimum safety floor for your selected estimate.</p>}</div>}
+      <button className="h-12 w-full rounded-xl bg-[var(--leaf)] font-semibold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:cursor-wait disabled:opacity-60" disabled={isSubmitting} type="submit">{isSubmitting ? "Saving your starting point..." : "Continue to Bitewise"}</button>
     </form>
   );
 }

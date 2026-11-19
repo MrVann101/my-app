@@ -1,20 +1,27 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import LogFoodForm from "./log-food-form";
 import TextFoodForm from "./text-food-form";
 import Favorites from "./favorites";
+import { IconLog, IconSparkles, IconStar } from "@/components/icons";
 
 type LogTab = "search" | "text" | "favorites";
 
 function LogContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const tabParam = searchParams.get("tab");
   const initialTab: LogTab =
     tabParam === "text" || tabParam === "favorites" || tabParam === "search" ? tabParam : "search";
-  const [activeTab, setActiveTab] = useState<LogTab>(initialTab);
+  const activeTab = initialTab;
+
+  function selectTab(tab: LogTab) {
+    router.replace(`${pathname}?tab=${tab}`, { scroll: false });
+  }
 
   return (
     <div className="space-y-6">
@@ -23,24 +30,27 @@ function LogContent() {
         aria-label="Input Method Tabs"
         className="flex rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs"
       >
-        {[
-          { id: "search", label: "Add Food Log", icon: "➕" },
-          { id: "text", label: "Text AI", icon: "📝" },
-          { id: "favorites", label: "Favorites", icon: "⭐" },
+        {        [
+          { id: "search", label: "Add Food Log", icon: IconLog },
+          { id: "text", label: "Text AI", icon: IconSparkles },
+          { id: "favorites", label: "Favorites", icon: IconStar },
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as LogTab)}
-              className={`active-press flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              aria-current={isActive ? "page" : undefined}
+              onClick={() => selectTab(tab.id as LogTab)}
+              role="tab"
+              aria-selected={isActive}
+              className={`active-press flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs sm:text-sm font-semibold transition-colors ${
                 isActive
-                  ? "bg-[var(--leaf)] text-white shadow-xs"
+                  ? "bg-[var(--leaf)] text-[var(--on-leaf)] shadow-xs"
                   : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
               }`}
             >
-              <span>{tab.icon}</span>
+              <tab.icon aria-hidden="true" className="size-4" />
               <span>{tab.label}</span>
             </button>
           );

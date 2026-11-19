@@ -8,6 +8,7 @@ export default function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,10 +40,10 @@ export default function LoginForm() {
 
   return (
     <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-      <label className="block text-sm font-medium">Email<input className="mt-2 h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-4 outline-none focus:border-[var(--leaf)]" name="email" type="email" required /></label>
-      <label className="block text-sm font-medium">Password<input className="mt-2 h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-4 outline-none focus:border-[var(--leaf)]" name="password" type="password" required /></label>
+      <label className="block text-sm font-medium">Email<input autoComplete="email" className="mt-2 h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-4 outline-none focus:border-[var(--leaf)]" name="email" type="email" required /></label>
+      <label className="block text-sm font-medium">Password<div className="relative mt-2"><input autoComplete="current-password" className="h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-4 pr-20 outline-none focus:border-[var(--leaf)]" name="password" type={showPassword ? "text" : "password"} required /><button aria-label={showPassword ? "Hide password" : "Show password"} className="absolute inset-y-0 right-2 min-w-11 px-2 text-xs font-semibold text-[var(--leaf)]" onClick={() => setShowPassword((visible) => !visible)} type="button">{showPassword ? "Hide" : "Show"}</button></div><span className="mt-1 block text-xs font-normal text-[var(--ink-muted)]">Use your Bitewise account password. Password managers are supported.</span></label>
       {error && <p className="text-sm text-[var(--coral)]" role="alert">{error}</p>}
-      <button className="h-12 w-full rounded-xl bg-[var(--leaf)] font-semibold text-white hover:bg-[var(--leaf-deep)] disabled:cursor-wait disabled:opacity-60" disabled={isSubmitting} type="submit">{isSubmitting ? "Logging in..." : "Log in"}</button>
+      <button className="h-12 w-full rounded-xl bg-[var(--leaf)] font-semibold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:cursor-wait disabled:opacity-60" disabled={isSubmitting} type="submit">{isSubmitting ? "Logging in..." : "Log in"}</button>
       <p className="text-center text-sm text-[var(--ink-muted)]">New to Bitewise? <Link className="font-semibold text-[var(--leaf)]" href="/signup">Create an account</Link></p>
     </form>
   );

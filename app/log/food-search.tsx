@@ -18,7 +18,7 @@ export default function FoodSearch({
   onAdd,
   selectedResult,
 }: {
-  onSelect: (result: SearchResult | null) => void;
+  onSelect?: (result: SearchResult | null) => void;
   onAdd?: (result: SearchResult) => void;
   selectedResult?: SearchResult | null;
 }) {
@@ -32,7 +32,7 @@ export default function FoodSearch({
     if (query.trim().length < 2) return;
     setIsSearching(true);
     setError(null);
-    onSelect(null);
+    onSelect?.(null);
     const response = await fetch(`/api/food/search?q=${encodeURIComponent(query.trim())}`);
     const payload = await response.json();
     setIsSearching(false);
@@ -47,7 +47,7 @@ export default function FoodSearch({
     setQuery("");
     setResults([]);
     setError(null);
-    onSelect(null);
+    onSelect?.(null);
   }
 
   function handleAddResult(result: SearchResult) {
@@ -57,7 +57,7 @@ export default function FoodSearch({
       setResults([]);
       setError(null);
     } else {
-      onSelect(result);
+      onSelect?.(result);
     }
   }
 
@@ -86,7 +86,7 @@ export default function FoodSearch({
           )}
         </div>
         <button
-          className="active-press flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--leaf)] text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+          className="active-press flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--leaf)] text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
           disabled={isSearching || query.trim().length < 2}
           type="submit"
           title="Search food database"
@@ -111,7 +111,7 @@ export default function FoodSearch({
                 key={`${result.dataSource}-${result.providerId}`}
                 className={`flex items-center justify-between rounded-xl border p-3.5 transition-all ${
                   isChosen
-                    ? "border-[var(--leaf)] bg-[var(--leaf-light)] text-[var(--leaf-deep)] shadow-2xs"
+                    ? "border-[var(--leaf)] bg-[var(--leaf-light)] text-[var(--leaf-ink)] shadow-2xs"
                     : "border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-muted)]"
                 }`}
               >
@@ -133,7 +133,7 @@ export default function FoodSearch({
                 <button
                   type="button"
                   onClick={() => handleAddResult(result)}
-                  className="active-press inline-flex items-center justify-center gap-1 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)]"
+                  className="active-press inline-flex items-center justify-center gap-1 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
                 >
                   <span>+ Add</span>
                 </button>
@@ -144,14 +144,14 @@ export default function FoodSearch({
       )}
 
       {selectedResult && !onAdd && (
-        <div className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-medium text-[var(--leaf-deep)] flex items-center justify-between">
+        <div className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-medium text-[var(--leaf-ink)] flex items-center justify-between">
           <span>
             ✓ Selected <strong>{selectedResult.foodName}</strong> ({selectedResult.defaultWeightG}g default).
           </span>
           <button
             type="button"
             onClick={handleClear}
-            className="text-xs font-bold text-[var(--leaf-deep)] underline hover:opacity-80"
+            className="text-xs font-bold text-[var(--leaf-ink)] underline hover:opacity-80"
           >
             Clear selection
           </button>

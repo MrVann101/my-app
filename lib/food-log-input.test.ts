@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foodLogInputSchema } from "@/app/api/food/log/route";
+import { foodLogInputSchema } from "@/lib/food-log-schemas";
 
 describe("food log input boundary", () => {
   const validInput = {

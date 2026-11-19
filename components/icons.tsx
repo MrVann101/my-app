@@ -20,6 +20,14 @@ export function IconLog(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconStar(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" {...props}>
+      <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" />
+    </svg>
+  );
+}
+
 export function IconHistory(props: SVGProps<SVGSVGElement>) {
   return (
     <svg fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" {...props}>

@@ -177,7 +177,7 @@ export default function ProfileTools() {
       </div>
       {targets && (
         <div className="rounded-2xl border border-[var(--leaf)]/25 bg-[var(--leaf-light)] p-4">
-          <p className="font-bold text-[var(--leaf-deep)]">Your daily targets</p>
+          <p className="font-bold text-[var(--leaf-ink)]">Your daily targets</p>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <p><span className="block text-xs text-[var(--ink-muted)]">Calories</span><strong>{Math.round(targets.targetCalories).toLocaleString()} kcal</strong></p>
             <p><span className="block text-xs text-[var(--ink-muted)]">Protein</span><strong>{Math.round(targets.targetProteinG)} g</strong></p>
@@ -188,8 +188,8 @@ export default function ProfileTools() {
         </div>
       )}
       {error && <p className="text-sm text-[var(--coral)]" role="alert">{error}</p>}
-      {message && <p className="text-sm text-[var(--leaf-deep)]" role="status">{message}</p>}
-      <button type="submit" disabled={isSubmitting} className="rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-white hover:bg-[var(--leaf-deep)] disabled:opacity-50">
+      {message && <p className="text-sm text-[var(--leaf-ink)]" role="status">{message}</p>}
+      <button type="submit" disabled={isSubmitting} className="rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:opacity-50">
         {isSubmitting ? "Saving…" : "Save Goals & Targets"}
       </button>
       <p className="text-xs leading-5 text-[var(--ink-muted)]">These are general estimates for nutrition tracking, not medical advice.</p>

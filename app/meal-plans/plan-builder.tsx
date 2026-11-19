@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import type { Recipe, RecipeNutrition } from "@/lib/recipes";
 
 type IngredientInput = { name: string; amount: string };
@@ -217,45 +216,10 @@ export default function PlanBuilder({
       }
 
       uploadedPhotoPath = null;
-      let trackerMessage = isNutritionFallback
-        ? `AI estimation is unavailable. An approximate ingredient-based estimate of ${Math.round(nutrition.calories)} kcal for "${recipe.title}" was added to today's tracker.`
-        : `Estimated ${Math.round(nutrition.calories)} kcal per serving for "${recipe.title}" and added it to today's tracker.`;
-      let trackerError = false;
-      try {
-        const logResponse = await fetch("/api/food/log", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            logDate: getBrowserDate(),
-            timezone: getBrowserTimezone(),
-            mealType: "snack",
-            foodName: recipe.title,
-            weightG: 1,
-            nutrientRate: {
-              caloriesPerG: nutrition.calories,
-              proteinPerG: nutrition.proteinG,
-              carbsPerG: nutrition.carbsG,
-              fatPerG: nutrition.fatG,
-              fiberPerG: 0,
-              sodiumPerG: 0,
-              sugarPerG: 0,
-            },
-            source: "manual",
-            dataSource: null,
-            aiConfidence: null,
-            isRecipe: true,
-          }),
-        });
-        const logPayload = await logResponse.json();
-        if (!logResponse.ok) {
-          trackerError = true;
-          trackerMessage = `Meal posted, but its calories could not be added to today's tracker: ${logPayload.error?.message ?? "Please add it from your food log."}`;
-        }
-      } catch (logError) {
-        trackerError = true;
-        const reason = logError instanceof Error ? logError.message : "Please add it from your food log.";
-        trackerMessage = `Meal posted, but its calories could not be added to today's tracker: ${reason}`;
-      }
+      const trackerMessage = isNutritionFallback
+        ? `Saved "${recipe.title}" with an approximate ingredient-based nutrition estimate. Use Log meal in My Plans when you are ready to add it to today's tracker.`
+        : `Saved "${recipe.title}" with an estimated ${Math.round(nutrition.calories)} kcal per serving. Use Log meal in My Plans when you are ready to add it to today's tracker.`;
+      const trackerError = false;
 
       setName("");
       setIngredients([{ name: "", amount: "" }]);
@@ -386,7 +350,7 @@ export default function PlanBuilder({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <button
-          className="active-press h-12 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="active-press h-12 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isSaving}
           name="visibility"
           type="submit"

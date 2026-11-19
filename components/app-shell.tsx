@@ -6,6 +6,7 @@ import { useSyncExternalStore, type ReactNode } from "react";
 import HeaderSearch from "./header-search";
 import {
   IconDashboard,
+  IconLog,
   IconSparkles,
   IconMealPlans,
   IconCamera,
@@ -13,13 +14,19 @@ import {
   IconHistory,
   IconBitewiseLogo,
 } from "./icons";
+import ThemeToggle from "./theme-toggle";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
-  { href: "/suggestions", label: "AI Suggestions", icon: IconSparkles },
-  { href: "/meal-plans", label: "Meal Ideas", icon: IconMealPlans, isCenter: true },
+  { href: "/log", label: "Log Food", icon: IconLog, isCenter: true },
   { href: "/photo", label: "Photo AI", icon: IconCamera },
+  { href: "/meal-plans", label: "Meal Plans", icon: IconMealPlans },
   { href: "/weekly-plan", label: "Weekly Plan", icon: IconHistory },
+];
+
+const secondaryNavigation = [
+  { href: "/suggestions", label: "AI Suggestions", icon: IconSparkles },
+  { href: "/history", label: "History", icon: IconHistory },
 ];
 
 const profileImageEvent = "bitewise-profile-image-change";
@@ -78,6 +85,7 @@ export default function AppShell({
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={isActive ? "page" : undefined}
                     className={`active-press flex items-center gap-3.5 rounded-xl px-4 py-3 transition-colors ${
                       isActive
                         ? "bg-[var(--leaf-light)] font-semibold text-[var(--leaf)]"
@@ -89,11 +97,36 @@ export default function AppShell({
                   </Link>
                 );
               })}
+              <div className="mt-5 border-t border-[var(--line)] pt-4">
+                <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--ink-muted)]">More</p>
+                {secondaryNavigation.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`active-press flex items-center gap-3.5 rounded-xl px-4 py-3 transition-colors ${
+                        isActive
+                          ? "bg-[var(--leaf-light)] font-semibold text-[var(--leaf)]"
+                          : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
+                      }`}
+                    >
+                      <Icon className="size-5" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </nav>
           </div>
-          <p className="text-xs leading-5 text-[var(--ink-muted)] border-t border-[var(--line)] pt-4">
-            Nutrition estimates are for tracking, not medical advice.
-          </p>
+          <div className="space-y-4">
+            <ThemeToggle compact />
+            <p className="border-t border-[var(--line)] pt-4 text-xs leading-5 text-[var(--ink-muted)]">
+              Nutrition estimates are for tracking, not medical advice.
+            </p>
+          </div>
         </aside>
 
         {/* Main Content Area */}
@@ -107,7 +140,10 @@ export default function AppShell({
             </div>
 
             <div className="flex items-center gap-2">
-              {pathname === "/dashboard" && <HeaderSearch />}
+              <HeaderSearch />
+              <div className="md:hidden">
+                <ThemeToggle compact />
+              </div>
               <Link
                 aria-label="Open profile"
                 className={`grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border bg-[var(--surface)] shadow-xs transition-colors hover:bg-[var(--surface-muted)] ${
@@ -130,7 +166,7 @@ export default function AppShell({
 
       {/* Mobile Bottom Navigation Bar */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--surface)]/90 px-2 py-1.5 backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--surface)]/90 px-2 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur-md md:hidden"
         aria-label="Mobile navigation"
       >
         <div className="mx-auto flex max-w-md items-center justify-around">
@@ -143,9 +179,10 @@ export default function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={isActive ? "page" : undefined}
                   className="active-press relative -top-3 flex flex-col items-center justify-center"
                 >
-                  <div className="grid size-11 place-items-center rounded-full bg-[var(--leaf)] text-white shadow-lg ring-4 ring-[var(--surface)]">
+                  <div className="grid size-11 place-items-center rounded-full bg-[var(--leaf)] text-[var(--on-leaf)] shadow-lg ring-4 ring-[var(--surface)]">
                     <Icon className="size-5 text-white stroke-[2.5]" />
                   </div>
                   <span className="mt-0.5 max-w-[64px] truncate text-center text-[10px] font-extrabold text-[var(--leaf)]">
@@ -159,6 +196,7 @@ export default function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? "page" : undefined}
                 className={`active-press flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 transition-all ${
                   isActive
                     ? "font-semibold text-[var(--leaf)]"

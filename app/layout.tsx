@@ -26,9 +26,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      data-theme="dark"
+      suppressHydrationWarning
       className={`${hankenGrotesk.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => {
+  const saved = localStorage.getItem("bitewise-theme");
+  const theme = saved === "light" || saved === "dark" ? saved : "dark";
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0b1320" : "#eef7ff");
+})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col"><PwaRegister /><OfflineBanner />{children}</body>
     </html>
   );

@@ -74,6 +74,7 @@ export default function ProfilePage() {
   const [profileOverview, setProfileOverview] = useState<ProfileOverview | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
@@ -149,8 +150,9 @@ export default function ProfilePage() {
   function handleProfileImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
+      setImageError(null);
       if (file.size > 3 * 1024 * 1024) {
-        alert("Image size should be less than 3MB.");
+        setImageError("Image size should be less than 3MB. Choose a smaller image and try again.");
         return;
       }
       const reader = new FileReader();
@@ -159,7 +161,6 @@ export default function ProfilePage() {
         setProfileImage(result);
         if (typeof window !== "undefined") {
           localStorage.setItem("bitewise_user_avatar", result);
-          localStorage.setItem("bitewise_avatar_alex_demo", result);
           window.dispatchEvent(new Event("bitewise-profile-image-change"));
         }
       };
@@ -178,6 +179,11 @@ export default function ProfilePage() {
   return (
     <AppShell eyebrow="Settings" title="Profile & Preferences">
       <div className="space-y-6">
+        {imageError && (
+          <div className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-4 py-3 text-sm text-[var(--coral)]" role="alert">
+            {imageError}
+          </div>
+        )}
         {/* User Profile Banner Header */}
         <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs sm:p-7">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -200,7 +206,7 @@ export default function ProfilePage() {
                 )}
                 <label
                   title="Upload profile picture"
-                  className="absolute bottom-0 right-0 flex size-6 cursor-pointer items-center justify-center rounded-full bg-[var(--leaf)] text-white shadow-xs hover:bg-[var(--leaf-deep)] transition-transform active:scale-95"
+                  className="absolute bottom-0 right-0 flex size-6 cursor-pointer items-center justify-center rounded-full bg-[var(--leaf)] text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] transition-transform active:scale-95"
                 >
                   <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -218,7 +224,7 @@ export default function ProfilePage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-bold text-[var(--foreground)]">{profileOverview?.name ?? "Your profile"}</h2>
-                  <span className="rounded-full border border-[var(--leaf)]/30 bg-[var(--leaf-soft)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--leaf-deep)]">
+                  <span className="rounded-full border border-[var(--leaf)]/30 bg-[var(--leaf-soft)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--leaf-ink)]">
                     Active
                   </span>
                 </div>

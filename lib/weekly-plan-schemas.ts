@@ -46,8 +46,8 @@ export const weeklyPlanSaveSchema = z.object({
 
 export const weeklyPlanRecordSchema = weeklyPlanSaveSchema.extend({
   id: z.number().int().positive(),
-  created_at: z.iso.datetime(),
-  updated_at: z.iso.datetime(),
+  created_at: z.iso.datetime({ offset: true }),
+  updated_at: z.iso.datetime({ offset: true }),
 });
 
 export const weeklyPlanUpdateSchema = weeklyPlanSaveSchema.partial().refine(

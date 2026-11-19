@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { IconSparkles } from "@/components/icons";
 import {
   getMealSlotLabel,
   parsePreferenceList,
@@ -53,11 +54,13 @@ export default function WeeklyPlanner() {
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [planToDelete, setPlanToDelete] = useState<WeeklyPlan | null>(null);
   const [planName, setPlanName] = useState("My Weekly Plan");
   const [calorieTarget, setCalorieTarget] = useState(String(defaultPreferences.dailyCalorieTarget));
   const [mealsPerDay, setMealsPerDay] = useState(String(defaultPreferences.mealsPerDay));
   const [preferredFoods, setPreferredFoods] = useState("");
   const [foodRestrictions, setFoodRestrictions] = useState("");
+  const deleteDialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -85,6 +88,16 @@ export default function WeeklyPlanner() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!planToDelete) return;
+    deleteDialogRef.current?.focus();
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setPlanToDelete(null);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [planToDelete]);
 
   function setPreferencesForm(preferences: WeeklyPlanPreferences) {
     setCalorieTarget(String(preferences.dailyCalorieTarget));
@@ -232,7 +245,6 @@ export default function WeeklyPlanner() {
   }
 
   async function deletePlan(plan: WeeklyPlan) {
-    if (!window.confirm(`Delete "${plan.name}"? This cannot be undone.`)) return;
     setError(null);
     setNotice(null);
     setIsDeleting(plan.id);
@@ -258,6 +270,7 @@ export default function WeeklyPlanner() {
 
   const newPlan = !current && !isCreating;
   const isBusy = isGenerating !== null || isSaving || isDeleting !== null;
+  const activeStep = current?.id ? 3 : current ? 2 : isCreating ? 0 : -1;
 
   return (
     <section className="space-y-6">
@@ -274,15 +287,19 @@ export default function WeeklyPlanner() {
             type="button"
             disabled={isBusy}
             onClick={startNewPlan}
-            className="active-press inline-flex shrink-0 items-center justify-center rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-white shadow-xs transition hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+            className="active-press inline-flex shrink-0 items-center justify-center rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-[var(--on-leaf)] shadow-xs transition hover:bg-[var(--leaf-deep)] disabled:opacity-50"
           >
             + Create Plan
           </button>
         </div>
         <div className="mt-6 grid gap-2 sm:grid-cols-4">
           {["Choose preferences", "Generate 7 days", "Review and customize", "Save and revisit"].map((step, index) => (
-            <div className="flex items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-3 py-2.5 text-xs font-semibold text-[var(--ink-muted)]" key={step}>
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--leaf-light)] text-[var(--leaf)]">{index + 1}</span>
+            <div
+              aria-current={activeStep === index ? "step" : undefined}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold ${activeStep >= index ? "bg-[var(--leaf-light)] text-[var(--leaf-ink)]" : "bg-[var(--surface-muted)] text-[var(--ink-muted)]"}`}
+              key={step}
+            >
+              <span className={`grid size-6 shrink-0 place-items-center rounded-full ${activeStep >= index ? "bg-[var(--leaf)] text-[var(--on-leaf)]" : "bg-[var(--line)] text-[var(--ink-muted)]"}`}>{index + 1}</span>
               {step}
             </div>
           ))}
@@ -290,7 +307,7 @@ export default function WeeklyPlanner() {
       </div>
 
       {error && <p className="rounded-2xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-4 text-sm font-semibold text-[var(--coral)]" role="alert">{error}</p>}
-      {notice && <p className="rounded-2xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-sm font-semibold text-[var(--leaf-deep)]" role="status">{notice}</p>}
+      {notice && <p className="rounded-2xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-sm font-semibold text-[var(--leaf-ink)]" role="status">{notice}</p>}
 
       {(plans.length > 0 || isLoading) && (
         <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5">
@@ -306,7 +323,7 @@ export default function WeeklyPlanner() {
                     disabled={isBusy}
                     aria-current={current?.id === plan.id ? "true" : undefined}
                     onClick={() => openPlan(plan)}
-                    className={`rounded-lg px-3 py-2 text-xs font-semibold ${current?.id === plan.id ? "bg-[var(--leaf)] text-white" : "text-[var(--foreground)] hover:bg-[var(--line)]"}`}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold ${current?.id === plan.id ? "bg-[var(--leaf)] text-[var(--on-leaf)]" : "text-[var(--foreground)] hover:bg-[var(--line)]"}`}
                   >
                     {plan.name}
                   </button>
@@ -314,13 +331,23 @@ export default function WeeklyPlanner() {
                     type="button"
                     aria-label={`Delete ${plan.name}`}
                     disabled={isBusy}
-                    onClick={() => void deletePlan(plan)}
-                    className="rounded-lg px-2 py-2 text-xs text-[var(--coral)] hover:bg-[var(--coral)]/10 disabled:opacity-50"
+                    onClick={() => setPlanToDelete(plan)}
+                    className="min-h-11 min-w-11 rounded-lg px-2 py-2 text-xs text-[var(--coral)] hover:bg-[var(--coral)]/10 disabled:opacity-50"
                   >
                     {isDeleting === plan.id ? "…" : "×"}
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+          {planToDelete && (
+            <div ref={deleteDialogRef} className="rounded-2xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-4" role="alertdialog" aria-modal="true" aria-labelledby="delete-plan-title" aria-describedby="delete-plan-description" tabIndex={-1}>
+              <h3 id="delete-plan-title" className="font-semibold text-[var(--foreground)]">Delete this weekly plan?</h3>
+              <p className="mt-2 text-sm text-[var(--ink-muted)]" id="delete-plan-description">&quot;{planToDelete.name}&quot; will be permanently removed. This cannot be undone.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" className="min-h-11 rounded-xl border border-[var(--line)] px-4 py-2 text-sm font-semibold" onClick={() => setPlanToDelete(null)}>Keep plan</button>
+                <button type="button" className="min-h-11 rounded-xl bg-[var(--coral)] px-4 py-2 text-sm font-semibold text-white" onClick={() => { const plan = planToDelete; setPlanToDelete(null); void deletePlan(plan); }}>Delete plan</button>
+              </div>
             </div>
           )}
         </section>
@@ -362,8 +389,8 @@ export default function WeeklyPlanner() {
             </label>
           </div>
           <div className="mt-5 flex flex-wrap gap-3">
-            <button type="button" disabled={isGenerating !== null} onClick={() => void generate("week")} className="active-press rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50">
-              {isGenerating === "week" ? "Generating your week…" : "✨ Generate 7-Day Plan"}
+            <button type="button" disabled={isGenerating !== null} onClick={() => void generate("week")} className="active-press rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50">
+              {isGenerating === "week" ? "Generating your week…" : <><IconSparkles className="size-4" aria-hidden="true" /> Generate 7-Day Plan</>}
             </button>
             <button type="button" onClick={() => setIsCreating(false)} className="rounded-xl border border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]">Cancel</button>
           </div>
@@ -373,7 +400,7 @@ export default function WeeklyPlanner() {
       {newPlan && !isLoading && !isCreating && !error && (
         <section className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] p-8 text-center">
           <p className="text-sm text-[var(--ink-muted)]">You don’t have a saved weekly plan yet.</p>
-          <button type="button" onClick={startNewPlan} className="mt-4 rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-white hover:bg-[var(--leaf-deep)]">Create your first plan</button>
+          <button type="button" onClick={startNewPlan} className="mt-4 rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)]">Create your first plan</button>
         </section>
       )}
 
@@ -388,7 +415,7 @@ export default function WeeklyPlanner() {
               </label>
               <p className="mt-2 text-xs text-[var(--ink-muted)]">Target: {current.preferences.dailyCalorieTarget.toLocaleString()} kcal/day · {current.preferences.mealsPerDay} meals/day</p>
             </div>
-            <button type="button" disabled={isSaving || isGenerating !== null} onClick={() => void savePlan()} className="active-press rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50">
+            <button type="button" disabled={isSaving || isGenerating !== null} onClick={() => void savePlan()} className="active-press rounded-xl bg-[var(--leaf)] px-5 py-3 text-sm font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50">
               {isSaving ? "Saving…" : current.id ? "Save changes" : "Save Weekly Plan"}
             </button>
           </div>
@@ -407,7 +434,7 @@ export default function WeeklyPlanner() {
                       type="button"
                       disabled={isGenerating !== null}
                       onClick={() => void generate("day", { day: day.day })}
-                      className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--leaf-deep)] hover:border-[var(--leaf)] disabled:opacity-50"
+                      className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--leaf-ink)] hover:border-[var(--leaf)] disabled:opacity-50"
                     >
                       {isGenerating === `day-${day.day}-` ? "Regenerating…" : "Regenerate day"}
                     </button>
@@ -428,7 +455,7 @@ export default function WeeklyPlanner() {
                               type="button"
                               disabled={isGenerating !== null}
                               onClick={() => void generate("meal", { day: day.day, slot, currentTitle: meal.title })}
-                              className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[var(--leaf-deep)] hover:bg-[var(--leaf-light)] disabled:opacity-50"
+                              className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[var(--leaf-ink)] hover:bg-[var(--leaf-light)] disabled:opacity-50"
                             >
                               {isReplacing ? "Replacing…" : "Replace"}
                             </button>

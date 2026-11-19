@@ -7,6 +7,7 @@ import SuggestionsCard from "./suggestions-card";
 import StreakCalendar from "@/components/streak-calendar";
 import { IconLog } from "@/components/icons";
 import { getBrowserTimezone } from "@/lib/date";
+import FoodLogRow from "@/components/food-log-row";
 
 type Dashboard = {
   timezone?: string;
@@ -33,6 +34,7 @@ type Dashboard = {
 export default function DashboardContent() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -78,7 +80,7 @@ export default function DashboardContent() {
       window.removeEventListener("focus", refreshWhenActive);
       document.removeEventListener("visibilitychange", refreshWhenActive);
     };
-  }, []);
+  }, [refreshKey]);
 
   if (error)
     return (
@@ -108,7 +110,7 @@ export default function DashboardContent() {
           We need a few stats to estimate your daily calorie and macro goals.
         </p>
         <Link
-          className="active-press mt-6 inline-flex items-center justify-center rounded-xl bg-[var(--leaf)] px-6 py-3 text-sm font-semibold text-white shadow-xs hover:bg-[var(--leaf-deep)]"
+          className="active-press mt-6 inline-flex items-center justify-center rounded-xl bg-[var(--leaf)] px-6 py-3 text-sm font-semibold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
           href="/onboarding"
         >
           Open Onboarding
@@ -124,7 +126,7 @@ export default function DashboardContent() {
   const macros = data.macros!;
 
   const macroConfigs = [
-    { label: "Protein", current: macros.proteinG, target: macros.targetProteinG, unit: "g", color: "bg-[var(--leaf)]", textColor: "text-[var(--leaf-deep)]", badgeStyle: "bg-[var(--leaf-light)] text-[var(--leaf-deep)] border-[var(--leaf)]/30", stroke: "var(--leaf)" },
+    { label: "Protein", current: macros.proteinG, target: macros.targetProteinG, unit: "g", color: "bg-[var(--macro-protein)]", textColor: "text-[var(--leaf-ink)]", badgeStyle: "bg-[var(--leaf-light)] text-[var(--leaf-ink)] border-[var(--leaf)]/30", stroke: "var(--macro-protein)" },
     { label: "Carbs", current: macros.carbsG, target: macros.targetCarbsG, unit: "g", color: "bg-[var(--sun)]", textColor: "text-[var(--sun)]", badgeStyle: "bg-[var(--surface-muted)] text-[var(--foreground)] border-[var(--line)]", stroke: "var(--sun)" },
     { label: "Fat", current: macros.fatG, target: macros.targetFatG, unit: "g", color: "bg-[var(--coral)]", textColor: "text-[var(--coral)]", badgeStyle: "bg-[var(--coral)]/10 text-[var(--coral)] border-[var(--coral)]/30", stroke: "var(--coral)" },
   ];
@@ -195,7 +197,12 @@ export default function DashboardContent() {
             <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row items-center gap-6 justify-between">
               <div className="flex flex-col sm:flex-row items-center gap-6 w-full justify-between">
                 <div className="relative flex items-center justify-center shrink-0">
-                  <svg className="size-32 -rotate-90" viewBox="0 0 100 100">
+                  <svg
+                    className="size-32 -rotate-90"
+                    viewBox="0 0 100 100"
+                    role="img"
+                    aria-label={`Macro ratio: ${Math.round(macros.proteinG)} grams protein (${Math.round(pPct)}%), ${Math.round(macros.carbsG)} grams carbs (${Math.round(cPct)}%), and ${Math.round(macros.fatG)} grams fat (${Math.round(fPct)}%).`}
+                  >
                     <circle cx="50" cy="50" r="38" stroke="var(--surface-muted)" strokeWidth="12" fill="none" />
                     {totalMacroG > 0 && (
                       <>
@@ -241,14 +248,13 @@ export default function DashboardContent() {
                   </div>
                 </div>
 
-                {/* Themed Macro Badges matching application CSS design tokens */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full" aria-label="Macro amounts and ratio">
                   <div className="flex items-center justify-between gap-3 text-xs rounded-xl bg-[var(--leaf-light)] p-3 border border-[var(--leaf)]/30">
                     <div className="flex items-center gap-2">
                       <span className="size-3 rounded-full bg-[var(--leaf)] shadow-2xs shrink-0" />
-                      <span className="font-extrabold text-[var(--leaf-deep)]">Protein</span>
+                      <span className="font-extrabold text-[var(--leaf-ink)]">Protein</span>
                     </div>
-                    <span className="tabular-nums font-bold text-[var(--leaf-deep)]">
+                    <span className="tabular-nums font-bold text-[var(--leaf-ink)]">
                       {Math.round(macros.proteinG)}g <span className="text-[10px] opacity-75">({Math.round(pPct)}%)</span>
                     </span>
                   </div>
@@ -272,6 +278,31 @@ export default function DashboardContent() {
                       {Math.round(macros.fatG)}g <span className="text-[10px] opacity-75">({Math.round(fPct)}%)</span>
                     </span>
                   </div>
+                </div>
+                <div className="w-full overflow-x-auto sm:hidden">
+                  <table className="w-full text-left text-xs">
+                    <caption className="sr-only">Macro amounts and their share of today&apos;s total</caption>
+                    <thead className="text-[var(--ink-muted)]">
+                      <tr>
+                        <th scope="col" className="pb-2 font-semibold">Macro</th>
+                        <th scope="col" className="pb-2 text-right font-semibold">Amount</th>
+                        <th scope="col" className="pb-2 text-right font-semibold">Share</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        ["Protein", macros.proteinG, pPct],
+                        ["Carbs", macros.carbsG, cPct],
+                        ["Fat", macros.fatG, fPct],
+                      ].map(([label, amount, share]) => (
+                        <tr key={label as string} className="border-t border-[var(--line)]">
+                          <th scope="row" className="py-2 font-bold text-[var(--foreground)]">{label}</th>
+                          <td className="tabular-nums py-2 text-right font-semibold">{Math.round(amount as number)}g</td>
+                          <td className="tabular-nums py-2 text-right font-semibold">{Math.round(share as number)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -329,21 +360,7 @@ export default function DashboardContent() {
         {data.logs && data.logs.length > 0 ? (
           <div className="mt-4 divide-y divide-[var(--line)]/50">
             {data.logs.map((log) => (
-              <div key={log.id} className="flex items-center justify-between py-3 text-sm">
-                <div>
-                  <p className="font-bold text-[var(--foreground)]">{log.food_name}</p>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
-                    <span className="capitalize font-semibold text-[var(--leaf)]">{log.meal_type}</span>
-                    <span>·</span>
-                    {log.is_recipe ? <span>{log.weight_g} serving{log.weight_g === 1 ? "" : "s"}</span> : log.weight_g ? <span>{log.weight_g}g</span> : null}
-                    <span>·</span>
-                    <span className="uppercase text-[10px] font-bold text-[var(--ink-muted)]">{log.source}</span>
-                  </div>
-                </div>
-                <span className="tabular-nums font-extrabold text-[var(--foreground)]">
-                  {Math.round(Number(log.calories))} kcal
-                </span>
-              </div>
+              <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
             ))}
           </div>
         ) : (
@@ -351,7 +368,7 @@ export default function DashboardContent() {
             <p className="text-sm text-[var(--ink-muted)]">No meals logged yet today.</p>
             <Link
               href="/log"
-              className="active-press mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)]"
+              className="active-press mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
             >
               <IconLog className="size-4" />
               <span>Log Your First Meal</span>

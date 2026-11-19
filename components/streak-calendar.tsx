@@ -88,8 +88,8 @@ export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: 
             <button
               type="button"
               onClick={() => changeMonth(-1)}
-              className="active-press grid size-7 place-items-center rounded-lg text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
-              title="Previous month"
+              className="active-press grid size-11 place-items-center rounded-lg text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
+              aria-label="Previous month"
             >
               ←
             </button>
@@ -99,11 +99,26 @@ export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: 
             <button
               type="button"
               onClick={() => changeMonth(1)}
-              className="active-press grid size-7 place-items-center rounded-lg text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
-              title="Next month"
+              className="active-press grid size-11 place-items-center rounded-lg text-xs font-bold text-[var(--foreground)] hover:bg-[var(--line)]"
+              aria-label="Next month"
             >
               →
             </button>
+          </div>
+
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--ink-muted)]" aria-label="Calendar legend">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="grid size-5 place-items-center rounded-md bg-[var(--leaf)] text-[var(--on-leaf)]" aria-hidden="true">
+                <IconFlame className="size-3" />
+              </span>
+              Logged
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="grid size-5 place-items-center rounded-md border-2 border-[var(--leaf)] bg-[var(--surface)] text-[var(--leaf)]" aria-hidden="true">
+                <IconCheck className="size-3 stroke-[3]" />
+              </span>
+              Target hit
+            </span>
           </div>
 
           <div className="flex items-center gap-1.5 rounded-full bg-[var(--leaf-light)] px-3 py-1 text-xs font-extrabold text-[var(--leaf-deep)] shadow-2xs">
@@ -146,7 +161,7 @@ export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: 
                   : ""
               } ${
                 hasLogged
-                  ? "bg-[var(--leaf)] text-white shadow-2xs"
+                  ? "bg-[var(--leaf)] text-[var(--on-leaf)] shadow-2xs"
                   : "bg-[var(--surface-muted)] text-[var(--foreground)] hover:bg-[var(--line)]"
               }`}
               title={day.dateStr}

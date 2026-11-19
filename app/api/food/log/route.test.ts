@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 import { createClient } from "@/lib/supabase/server";
-import { foodLogInputSchema, foodLogRequestSchema } from "./route";
+import { foodLogInputSchema, foodLogRequestSchema } from "@/lib/food-log-schemas";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 

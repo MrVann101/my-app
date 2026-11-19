@@ -1,17 +1,42 @@
 @import "tailwindcss";
 
+/*
+ * Bitewise design tokens (primitive -> semantic -> component).
+ * Components must reference semantic tokens only; never raw hex values.
+ */
 :root {
   --background: #eef7ff;
   --foreground: #0f172a;
   --surface: #ffffff;
   --surface-muted: #f0f7ff;
   --line: #bae6fd;
-  --ink-muted: #64748b;
+  --ink-muted: #475569;
   --leaf: #0284c7;
   --leaf-deep: #0369a1;
+  --on-leaf: #ffffff;
   --leaf-light: #e0f2fe;
+  --leaf-ink: #075985;
+  --hero-from: #075985;
+  --hero-via: #0369a1;
+  --hero-to: #0284c7;
+  --leaf-soft: var(--leaf-light);
+  --sky: #0ea5e9;
+  --sky-soft: #e0f2fe;
+  --sky-deep: #0369a1;
   --sun: #0ea5e9;
-  --coral: #ef4444;
+  --macro-protein: #0284c7;
+  --macro-carbs: #0ea5e9;
+  --macro-fat: #d97706;
+  --coral: #dc2626;
+  --coral-soft: rgba(220, 38, 38, 0.1);
+  --warning: #b45309;
+  --warning-soft: rgba(217, 119, 6, 0.12);
+  --scrim: rgba(15, 23, 42, 0.55);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --duration-press: 140ms;
+  --duration-ui: 180ms;
+  color-scheme: light;
 }
 
 :root[data-theme="dark"] {
@@ -22,10 +47,26 @@
   --line: #263a5e;
   --ink-muted: #94a3b8;
   --leaf: #38bdf8;
-  --leaf-deep: #0284c7;
+  --leaf-deep: #7dd3fc;
+  --on-leaf: #04121f;
+  --hero-from: #0c4a6e;
+  --hero-via: #075985;
+  --hero-to: #0369a1;
   --leaf-light: #163654;
+  --leaf-ink: #7dd3fc;
+  --sky: #38bdf8;
+  --sky-soft: #163654;
+  --sky-deep: #7dd3fc;
   --sun: #38bdf8;
+  --macro-protein: #38bdf8;
+  --macro-carbs: #7dd3fc;
+  --macro-fat: #fbbf24;
   --coral: #f87171;
+  --coral-soft: rgba(248, 113, 113, 0.14);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.14);
+  --scrim: rgba(2, 6, 23, 0.7);
+  color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -37,10 +78,26 @@
     --line: #263a5e;
     --ink-muted: #94a3b8;
     --leaf: #38bdf8;
-    --leaf-deep: #0284c7;
+    --leaf-deep: #7dd3fc;
+    --on-leaf: #04121f;
+    --hero-from: #0c4a6e;
+    --hero-via: #075985;
+    --hero-to: #0369a1;
     --leaf-light: #163654;
+    --leaf-ink: #7dd3fc;
+    --sky: #38bdf8;
+    --sky-soft: #163654;
+    --sky-deep: #7dd3fc;
     --sun: #38bdf8;
+    --macro-protein: #38bdf8;
+    --macro-carbs: #7dd3fc;
+    --macro-fat: #fbbf24;
     --coral: #f87171;
+    --coral-soft: rgba(248, 113, 113, 0.14);
+    --warning: #fbbf24;
+    --warning-soft: rgba(251, 191, 36, 0.14);
+    --scrim: rgba(2, 6, 23, 0.7);
+    color-scheme: dark;
   }
 }
 
@@ -63,8 +120,15 @@ body {
 button,
 a,
 input,
-select {
+select,
+textarea {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
 }
 
 .tabular-nums {
@@ -72,12 +136,29 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
+/* Tactile press feedback: explicit properties, strong ease-out, sub-200ms. */
 .active-press {
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform var(--duration-press) var(--ease-out),
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
 }
 
-.active-press:active {
-  transform: scale(0.98);
+.active-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Dialog entrance (occasional UI only; command palette opts out). */
+.dialog-enter {
+  transition:
+    opacity var(--duration-ui) var(--ease-out),
+    transform var(--duration-ui) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }
 
 :focus-visible {
@@ -96,5 +177,5 @@ select {
 
 ::selection {
   background: var(--leaf-light);
-  color: var(--leaf-deep);
+  color: var(--leaf-ink);
 }

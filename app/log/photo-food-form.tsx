@@ -5,9 +5,7 @@ import Link from "next/link";
 import { computeNutrients } from "@/lib/food";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import type { AiPhotoEstimate } from "@/lib/types";
-import { IconCamera, IconUpload, IconShieldCheck, IconCheck } from "@/components/icons";
-
-type PermissionTarget = "camera" | "gallery" | null;
+import { IconCamera, IconUpload } from "@/components/icons";
 
 export default function PhotoFoodForm() {
   const [items, setItems] = useState<AiPhotoEstimate[]>([]);
@@ -18,7 +16,7 @@ export default function PhotoFoodForm() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [pendingPermission, setPendingPermission] = useState<PermissionTarget>(null);
+  const [mealType, setMealType] = useState("snack");
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -29,31 +27,10 @@ export default function PhotoFoodForm() {
     };
   }, [previewUrl]);
 
-  function requestPermission(target: "camera" | "gallery") {
+  function openFilePicker(target: "camera" | "gallery") {
     setError(null);
     setStatus(null);
-    setPendingPermission(target);
-  }
-
-  function cancelPermission() {
-    setPendingPermission(null);
-  }
-
-  async function handlePermissionGranted() {
-    const target = pendingPermission;
-    setPendingPermission(null);
-
     if (target === "camera") {
-      // Attempt browser camera permission check if supported
-      if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          // Stop stream immediately after permission granted, then open input
-          stream.getTracks().forEach((track) => track.stop());
-        } catch {
-          // Fall back to triggering native input capture directly
-        }
-      }
       cameraInputRef.current?.click();
     } else if (target === "gallery") {
       galleryInputRef.current?.click();
@@ -152,7 +129,7 @@ export default function PhotoFoodForm() {
         body: JSON.stringify(targetItems.map((item) => ({
             logDate,
             timezone: getBrowserTimezone(),
-            mealType: "snack",
+            mealType,
             foodName: item.foodName,
             weightG: item.estimatedWeightG,
             nutrientRate: item.nutrientRate,
@@ -205,47 +182,10 @@ export default function PhotoFoodForm() {
         onChange={(event) => handleImage(event.target.files?.[0])}
       />
 
-      {/* Permission Request Dialog Modal / Card */}
-      {pendingPermission ? (
-        <div className="rounded-2xl border border-[var(--leaf)]/40 bg-[var(--leaf-light)] p-5 shadow-sm space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="grid size-10 place-items-center rounded-xl bg-[var(--leaf)] text-white shrink-0">
-              <IconShieldCheck className="size-6" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-[var(--leaf-deep)]">
-                {pendingPermission === "camera" ? "Camera Permission Required" : "Photo Gallery Permission Required"}
-              </h3>
-              <p className="mt-1 text-xs leading-relaxed text-[var(--ink-muted)]">
-                Bitewise requests permission to {pendingPermission === "camera" ? "access your device camera to take a photo of your meal" : "select a meal photo from your photo library"}. Photos are analyzed with AI vision and automatically deleted after 30 days.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-2 justify-end pt-2 border-t border-[var(--leaf)]/20">
-            <button
-              type="button"
-              onClick={cancelPermission}
-              className="active-press rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2.5 text-xs font-bold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => void handlePermissionGranted()}
-              className="active-press inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[var(--leaf-deep)]"
-            >
-              <IconCheck className="size-4" />
-              <span>Allow & Continue</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Action Buttons Choice Screen */
-        <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
           <button
             type="button"
-            onClick={() => requestPermission("camera")}
+            onClick={() => openFilePicker("camera")}
             disabled={isAnalyzing}
             className="active-press flex flex-col items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center shadow-xs transition-all hover:border-[var(--leaf)] hover:bg-[var(--surface-muted)] disabled:opacity-50"
           >
@@ -258,7 +198,7 @@ export default function PhotoFoodForm() {
 
           <button
             type="button"
-            onClick={() => requestPermission("gallery")}
+            onClick={() => openFilePicker("gallery")}
             disabled={isAnalyzing}
             className="active-press flex flex-col items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center shadow-xs transition-all hover:border-[var(--leaf)] hover:bg-[var(--surface-muted)] disabled:opacity-50"
           >
@@ -268,8 +208,10 @@ export default function PhotoFoodForm() {
             <strong className="mt-3 text-sm font-bold text-[var(--foreground)]">Upload from Gallery</strong>
             <span className="mt-1 text-xs text-[var(--ink-muted)]">Choose JPEG, PNG, or WebP</span>
           </button>
-        </div>
-      )}
+      </div>
+      <p className="text-xs leading-5 text-[var(--ink-muted)]">
+        Photos are analyzed securely and automatically deleted after 30 days.
+      </p>
 
       {/* Image Thumbnail Preview & Loading State */}
       {previewUrl && (
@@ -287,13 +229,13 @@ export default function PhotoFoodForm() {
       )}
 
       {error && (
-        <div className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-4 text-xs font-bold text-[var(--coral)]" role="alert">
+        <div aria-live="polite" className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-4 text-xs font-bold text-[var(--coral)]" role="alert">
           {error}{authRequired && <> <Link className="underline underline-offset-2" href="/login">Sign in</Link> and reopen Photo AI.</>}
         </div>
       )}
 
       {status && (
-        <p className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-deep)]" role="status">
+        <p aria-live="polite" className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-ink)]" role="status">
           {status}
         </p>
       )}
@@ -319,11 +261,24 @@ export default function PhotoFoodForm() {
               onClick={addIngredient}
               disabled={isSaving}
               aria-label="Add ingredient"
-              className="active-press min-h-10 min-w-20 rounded-lg border border-[var(--leaf)]/40 bg-[var(--leaf-light)] px-4 py-2 text-sm font-bold text-[var(--leaf-deep)] hover:bg-[var(--leaf)]/15 disabled:opacity-50"
+              className="active-press min-h-10 min-w-20 rounded-lg border border-[var(--leaf)]/40 bg-[var(--leaf-light)] px-4 py-2 text-sm font-bold text-[var(--leaf-ink)] hover:bg-[var(--leaf)]/15 disabled:opacity-50"
             >
               Add
             </button>
           </div>
+          <label className="block text-xs font-bold uppercase text-[var(--ink-muted)]">
+            Meal Event
+            <select
+              className="mt-1.5 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold outline-none focus:border-[var(--leaf)]"
+              value={mealType}
+              onChange={(event) => setMealType(event.target.value)}
+            >
+              <option value="breakfast">Breakfast</option>
+              <option value="lunch">Lunch</option>
+              <option value="dinner">Dinner</option>
+              <option value="snack">Snack</option>
+            </select>
+          </label>
 
           <div className="space-y-3">
             {items.map((item, index) => {
@@ -374,7 +329,7 @@ export default function PhotoFoodForm() {
             type="button"
             onClick={() => void saveItems(items)}
             disabled={isSaving || items.some((item) => !item.foodName.trim())}
-            className="active-press h-11 w-full rounded-xl bg-[var(--leaf-deep)] text-sm font-bold text-white shadow-xs hover:bg-[var(--leaf)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="active-press h-11 w-full rounded-xl bg-[var(--leaf-deep)] text-sm font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaving ? "Saving..." : `Save all ${items.length} food items to journal`}
           </button>

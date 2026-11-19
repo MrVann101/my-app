@@ -73,4 +73,27 @@ describe("weekly plans route", () => {
     }));
     expect((await response.json()).plan.id).toBe(8);
   });
+
+  it("reports when the weekly plans migration is missing", async () => {
+    const single = vi.fn().mockResolvedValue({ data: null, error: { code: "PGRST205", message: "table missing" } });
+    const select = vi.fn(() => ({ single }));
+    const insert = vi.fn(() => ({ select }));
+    mockedCreateClient.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
+      from: vi.fn(() => ({ insert })),
+    } as never);
+
+    const response = await POST(new Request("http://localhost/api/weekly-plans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "My Week",
+        preferences: { dailyCalorieTarget: 2000, mealsPerDay: 3, preferredFoods: [], foodRestrictions: [] },
+        days: schedule,
+      }),
+    }));
+
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.message).toContain("0021_weekly_plans.sql");
+  });
 });
