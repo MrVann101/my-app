@@ -1,36 +1,116 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { computeNutrients } from "@/lib/food";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
+import { defaultMealTypeByHour, MEAL_SLOTS, normalizeMealSlot, type MealSlot } from "@/lib/meal-slot";
 import type { AiTextEstimate } from "@/lib/types";
+import { IconCheck, IconX } from "@/components/icons";
 
-export default function TextFoodForm() {
+type EditableTextItem = AiTextEstimate & {
+  id: string;
+  weightText: string;
+};
+
+function createItemId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export default function TextFoodForm({ initialMealType }: { initialMealType?: string } = {}) {
   const [description, setDescription] = useState("");
-  const [items, setItems] = useState<AiTextEstimate[]>([]);
+  const [items, setItems] = useState<EditableTextItem[]>([]);
   const [provider, setProvider] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [mealType, setMealType] = useState("snack");
+  const [mealType, setMealType] = useState<MealSlot>(() => normalizeMealSlot(initialMealType) ?? "snack");
+  const userChangedSlot = useRef(false);
+
+  useEffect(() => {
+    const normalized = normalizeMealSlot(initialMealType);
+    const timer = window.setTimeout(() => {
+      if (normalized) {
+        setMealType(normalized);
+      } else if (!userChangedSlot.current) {
+        setMealType(defaultMealTypeByHour());
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [initialMealType]);
+
+  const totalCalories = useMemo(
+    () => items.reduce((sum, item) => sum + computeNutrients(item.estimatedWeightG, item.nutrientRate).calories, 0),
+    [items],
+  );
 
   async function analyze() {
     setError(null);
     setStatus(null);
     setIsAnalyzing(true);
-    const response = await fetch("/api/food/analyze-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description }) });
-    const payload = await response.json();
-    setIsAnalyzing(false);
-    if (!response.ok) {
-      setError(payload.error?.message ?? "Description analysis failed. Use search or manual entry instead.");
-      return;
+    try {
+      const response = await fetch("/api/food/analyze-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error?.message ?? "Description analysis failed. Try Search & Custom instead.");
+        return;
+      }
+      const parsed: AiTextEstimate[] = payload.items ?? [];
+      if (parsed.length === 0) {
+        setError("No recognizable food items were found. Try listing foods with approximate amounts.");
+        return;
+      }
+      setItems(
+        parsed.map((item) => ({
+          ...item,
+          id: createItemId(),
+          weightText: String(Math.round(item.estimatedWeightG)),
+        })),
+      );
+      setProvider(payload.providerUsed);
+    } catch {
+      setError("Unable to reach Bitewise to analyze your description. Check your connection and try again.");
+    } finally {
+      setIsAnalyzing(false);
     }
-    setItems(payload.items);
-    setProvider(payload.providerUsed);
+  }
+
+  function updateItemName(id: string, foodName: string) {
+    setItems((current) => current.map((entry) => (entry.id === id ? { ...entry, foodName } : entry)));
+  }
+
+  function updateItemWeight(id: string, rawText: string) {
+    setItems((current) =>
+      current.map((entry) => {
+        if (entry.id !== id) return entry;
+        const parsed = Number(rawText);
+        const safeWeight = Number.isFinite(parsed) && parsed > 0 ? Math.min(100000, parsed) : entry.estimatedWeightG;
+        return {
+          ...entry,
+          weightText: rawText,
+          estimatedWeightG: safeWeight,
+        };
+      }),
+    );
+  }
+
+  function removeItem(id: string) {
+    setItems((current) => current.filter((entry) => entry.id !== id));
   }
 
   async function saveAll() {
+    if (items.some((item) => !item.foodName.trim())) {
+      setError("Every item needs a food name before saving.");
+      return;
+    }
     setError(null);
     setStatus(null);
     setIsSaving(true);
@@ -38,25 +118,28 @@ export default function TextFoodForm() {
       const response = await fetch("/api/food/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(items.map((item) => ({
+        body: JSON.stringify(
+          items.map((item) => ({
             logDate: getBrowserDate(),
             timezone: getBrowserTimezone(),
             mealType,
-            foodName: item.foodName,
+            foodName: item.foodName.trim(),
             weightG: item.estimatedWeightG,
             nutrientRate: item.nutrientRate,
             source: "ai_text",
             dataSource: provider,
             aiConfidence: item.confidence,
-          }))),
+          })),
+        ),
       });
       const payload = await response.json();
       if (!response.ok) {
         setError(payload.error?.message ?? "Unable to save these food logs.");
         return;
       }
+      setStatus(`Saved ${payload.logs?.length ?? items.length} food items (${Math.round(totalCalories)} kcal) to today's journal.`);
       setItems([]);
-      setStatus(`Saved ${payload.logs?.length ?? items.length} food items to today's journal.`);
+      setDescription("");
     } catch {
       setError("Unable to save these food logs. Check your connection and try again.");
     } finally {
@@ -66,70 +149,136 @@ export default function TextFoodForm() {
 
   return (
     <div className="space-y-4">
-      <label className="block text-sm font-medium">
-        Describe your meal
+      <div>
+        <label className="block text-sm font-medium" htmlFor="text-meal-description">
+          Describe your meal
+        </label>
         <textarea
-          className="mt-2 min-h-28 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] p-3 outline-none focus:border-[var(--leaf)]"
-          placeholder="Example: two eggs, toast, and a banana"
+          id="text-meal-description"
+          className="mt-2 min-h-28 w-full rounded-xl border border-[var(--border-control)] bg-[var(--background)] p-3 text-sm outline-none focus:border-[var(--leaf)]"
+          placeholder="Example: two scrambled eggs, two slices of whole wheat toast, and a banana"
           value={description}
           onChange={(event) => setDescription(event.target.value)}
         />
-      </label>
+      </div>
+
       <button
-        className="h-11 w-full rounded-xl bg-[var(--leaf)] font-semibold text-[var(--on-leaf)] disabled:opacity-50"
+        className="active-press h-11 w-full rounded-xl bg-[var(--leaf)] font-semibold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:opacity-50"
         disabled={isAnalyzing || isSaving || description.trim().length < 3}
-        onClick={analyze}
+        onClick={() => void analyze()}
         type="button"
       >
         {isAnalyzing ? "Parsing meal..." : "Review estimate"}
       </button>
-      {error && <p className="rounded-xl bg-[var(--coral-soft)] p-4 text-sm text-[var(--coral)]" role="alert">{error}</p>}
-      {status && <p className="rounded-xl bg-[var(--leaf-light)] p-4 text-sm text-[var(--leaf-ink)]" role="status">{status}</p>}
+
+      {error && <p className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral-soft)] p-4 text-xs font-semibold text-[var(--coral)]" role="alert">{error}</p>}
+
+      {status && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-ink)]" role="status">
+          <span className="inline-flex items-center gap-1.5">
+            <IconCheck className="size-4 shrink-0" />
+            <span>{status}</span>
+          </span>
+          <Link href="/dashboard" className="underline underline-offset-2 hover:opacity-80">
+            View Dashboard →
+          </Link>
+        </div>
+      )}
+
       {items.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-semibold">Review parsed foods</p>
-            <span className="rounded-full bg-[var(--leaf-light)] px-3 py-1 text-xs text-[var(--leaf-ink)]">AI estimate · {provider}</span>
+            <h2 className="text-base font-bold text-[var(--foreground)]">Review parsed foods</h2>
+            <span className="rounded-full bg-[var(--leaf-light)] px-3 py-1 text-xs font-semibold text-[var(--leaf-ink)]">
+              AI estimate · {provider}
+            </span>
           </div>
-          <label className="block text-sm font-medium">
-            Meal Event
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-[var(--ink-muted)]" htmlFor="text-meal-slot">
+              Meal
+            </label>
             <select
-              className="mt-2 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-3"
+              id="text-meal-slot"
+              className="mt-1.5 h-11 w-full rounded-xl border border-[var(--border-control)] bg-[var(--background)] px-3 text-sm font-semibold outline-none focus:border-[var(--leaf)]"
               value={mealType}
-              onChange={(event) => setMealType(event.target.value)}
+              onChange={(event) => {
+                userChangedSlot.current = true;
+                setMealType(event.target.value as MealSlot);
+              }}
             >
-              <option value="breakfast">Breakfast</option>
-              <option value="lunch">Lunch</option>
-              <option value="dinner">Dinner</option>
-              <option value="snack">Snack</option>
+              {MEAL_SLOTS.map((slot) => (
+                <option key={slot.value} value={slot.value}>{slot.label}</option>
+              ))}
             </select>
-          </label>
-          {items.map((item, index) => {
-            const totals = computeNutrients(item.estimatedWeightG, item.nutrientRate);
-            return (
-              <div className="rounded-2xl border border-[var(--line)] p-4" key={`${item.foodName}-${index}`}>
-                <div className="flex justify-between">
-                  <span className="font-semibold">{item.foodName}</span>
-                  <span className="text-sm">{Math.round(totals.calories)} kcal</span>
+          </div>
+
+          <div className="space-y-3">
+            {items.map((item, index) => {
+              const totals = computeNutrients(item.estimatedWeightG, item.nutrientRate);
+              return (
+                <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-4" key={item.id}>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="tabular-nums text-xs font-bold text-[var(--leaf)]">
+                      {Math.round(totals.calories)} kcal · Confidence: {item.confidence}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      disabled={isSaving}
+                      aria-label={`Remove ${item.foodName || `item ${index + 1}`}`}
+                      className="active-press inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[var(--coral)] hover:bg-[var(--coral-soft)] disabled:opacity-50"
+                    >
+                      <IconX className="size-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--ink-muted)]" htmlFor={`text-name-${item.id}`}>
+                        Food name
+                      </label>
+                      <input
+                        id={`text-name-${item.id}`}
+                        className="mt-1 h-11 w-full rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--leaf)]"
+                        disabled={isSaving}
+                        maxLength={200}
+                        value={item.foodName}
+                        onChange={(event) => updateItemName(item.id, event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--ink-muted)]" htmlFor={`text-weight-${item.id}`}>
+                        Weight (g)
+                      </label>
+                      <input
+                        id={`text-weight-${item.id}`}
+                        className="tabular-nums mt-1 h-11 w-full rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3 text-sm font-bold outline-none focus:border-[var(--leaf)]"
+                        disabled={isSaving}
+                        min="1"
+                        max="100000"
+                        type="number"
+                        inputMode="numeric"
+                        value={item.weightText}
+                        onChange={(event) => updateItemWeight(item.id, event.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <label className="mt-3 block text-sm font-medium">
-                  Weight (g)
-                  <input
-                    className="mt-2 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-3"
-                    disabled={isSaving}
-                    min="1"
-                    type="number"
-                    value={item.estimatedWeightG}
-                    onChange={(event) => setItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, estimatedWeightG: Math.max(1, Number(event.target.value) || 1) } : entry))}
-                  />
-                </label>
-                <p className="mt-2 text-xs text-[var(--ink-muted)]">Confidence: {item.confidence}. Totals recalculate from weight.</p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl bg-[var(--surface-muted)] px-4 py-3 text-sm">
+            <span className="font-semibold text-[var(--ink-muted)]">Estimated meal total ({items.length} items)</span>
+            <strong className="tabular-nums text-base font-extrabold text-[var(--foreground)]">
+              {Math.round(totalCalories).toLocaleString()} kcal
+            </strong>
+          </div>
+
           <button
-            className="h-11 w-full rounded-xl bg-[var(--leaf-deep)] font-semibold text-[var(--on-leaf)] disabled:opacity-50"
-            disabled={isSaving}
+            className="active-press h-12 w-full rounded-xl bg-[var(--leaf)] text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+            disabled={isSaving || items.some((item) => !item.foodName.trim())}
             onClick={() => void saveAll()}
             type="button"
           >

@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Dialog from "@/components/dialog";
 import type { Recipe } from "@/lib/recipes";
-import { IconLog } from "@/components/icons";
+import { IconLog, IconStar, IconTrash } from "@/components/icons";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
+import { defaultMealTypeByHour, MEAL_SLOTS, type MealSlot } from "@/lib/meal-slot";
 
 type SavedMeal = {
   id: number;
@@ -25,10 +27,6 @@ type SavedMeal = {
   }[];
 };
 
-type PendingFavoriteAction = {
-  meal: SavedMeal;
-};
-
 export default function MyPlans() {
   const [meals, setMeals] = useState<SavedMeal[]>([]);
   const [coverImages, setCoverImages] = useState<Record<number, string>>({});
@@ -36,11 +34,18 @@ export default function MyPlans() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [loggingId, setLoggingId] = useState<number | null>(null);
   const [updatingFavoriteId, setUpdatingFavoriteId] = useState<number | null>(null);
-  const [pendingFavoriteAction, setPendingFavoriteAction] = useState<PendingFavoriteAction | null>(null);
+  const [pendingDeleteMeal, setPendingDeleteMeal] = useState<SavedMeal | null>(null);
   const [viewingMealId, setViewingMealId] = useState<number | null>(null);
-  const [mealType, setMealType] = useState("snack");
+  const [mealType, setMealType] = useState<MealSlot>("snack");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setMealType(defaultMealTypeByHour());
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const loadMeals = useCallback(async () => {
     setError(null);
@@ -54,8 +59,10 @@ export default function MyPlans() {
       setMeals(savedMeals);
       const images: Record<number, string> = {};
       for (const meal of savedMeals) {
-        const coverImage = localStorage.getItem(`bitewise_plan_cover_${meal.id}`);
-        if (coverImage) images[meal.id] = coverImage;
+        try {
+          const coverImage = localStorage.getItem(`bitewise_plan_cover_${meal.id}`);
+          if (coverImage) images[meal.id] = coverImage;
+        } catch {}
       }
       setCoverImages(images);
     } catch (loadError) {
@@ -81,25 +88,13 @@ export default function MyPlans() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error?.message ?? "Unable to delete this meal.");
       setMeals((current) => current.filter((meal) => meal.id !== id));
-      setViewingMealId((current) => current === id ? null : current);
+      setViewingMealId((current) => (current === id ? null : current));
       setStatus("Meal removed from My Plans.");
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Unable to delete this meal.");
     } finally {
       setDeletingId(null);
     }
-  }
-
-  function requestDeleteMeal(meal: SavedMeal) {
-    if (meal.is_favorite) {
-      setPendingFavoriteAction({ meal });
-      return;
-    }
-    void deleteMeal(meal.id);
-  }
-
-  async function logMeal(meal: SavedMeal) {
-    await logMealNow(meal);
   }
 
   async function logMealNow(meal: SavedMeal) {
@@ -119,7 +114,7 @@ export default function MyPlans() {
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error?.message ?? "Unable to log this meal plan.");
-        setStatus(`Logged ${meal.name} to your journal. It remains in My Plans. Its calories are included in today's total.`);
+        setStatus(`Logged ${meal.name} to your journal. It remains in My Plans.`);
         return;
       }
 
@@ -149,11 +144,9 @@ export default function MyPlans() {
       });
       const logPayload = await logResponse.json();
       if (!logResponse.ok) throw new Error(logPayload.error?.message ?? "Unable to log this recipe.");
-      setStatus(`Logged ${recipe.title} as ${mealType} to your journal. It remains in My Plans. Its calories are included in today's total.`);
+      setStatus(`Logged ${recipe.title} as ${mealType} to your journal. It remains in My Plans.`);
     } catch (logError) {
-      setError(logError instanceof Error
-        ? logError.message
-        : "Unable to log this recipe.");
+      setError(logError instanceof Error ? logError.message : "Unable to log this recipe.");
     } finally {
       setLoggingId(null);
     }
@@ -165,9 +158,9 @@ export default function MyPlans() {
     setUpdatingFavoriteId(meal.id);
     const isFavorite = !meal.is_favorite;
     const favoritedAt = isFavorite ? new Date().toISOString() : null;
-    setMeals((current) => current.map((item) => item.id === meal.id
-      ? { ...item, is_favorite: isFavorite, favorited_at: favoritedAt }
-      : item));
+    setMeals((current) =>
+      current.map((item) => (item.id === meal.id ? { ...item, is_favorite: isFavorite, favorited_at: favoritedAt } : item)),
+    );
     try {
       const response = await fetch(`/api/meal-plans/${meal.id}`, {
         method: "PATCH",
@@ -176,14 +169,20 @@ export default function MyPlans() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error?.message ?? "Unable to update favorite.");
-      setMeals((current) => current.map((item) => item.id === meal.id
-        ? { ...item, is_favorite: payload.plan.is_favorite, favorited_at: payload.plan.favorited_at }
-        : item));
+      setMeals((current) =>
+        current.map((item) =>
+          item.id === meal.id
+            ? { ...item, is_favorite: payload.plan.is_favorite, favorited_at: payload.plan.favorited_at }
+            : item,
+        ),
+      );
       setStatus(payload.plan.is_favorite ? "Recipe added to favorites." : "Recipe removed from favorites.");
     } catch (favoriteError) {
-      setMeals((current) => current.map((item) => item.id === meal.id
-        ? { ...item, is_favorite: meal.is_favorite, favorited_at: meal.favorited_at }
-        : item));
+      setMeals((current) =>
+        current.map((item) =>
+          item.id === meal.id ? { ...item, is_favorite: meal.is_favorite, favorited_at: meal.favorited_at } : item,
+        ),
+      );
       setError(favoriteError instanceof Error ? favoriteError.message : "Unable to update favorite.");
     } finally {
       setUpdatingFavoriteId(null);
@@ -197,39 +196,51 @@ export default function MyPlans() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[var(--foreground)]">My Plans</h2>
-          <p className="mt-1 text-sm text-[var(--ink-muted)]">Your private plans and meals you have shared publicly.</p>
+          <p className="mt-1 text-sm text-[var(--ink-muted)]">Your private saved plans and recipes.</p>
         </div>
-        <button className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-bold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-50" disabled={isLoading} onClick={() => void loadMeals()} type="button">
+        <button
+          className="active-press min-h-11 rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-4 text-xs font-bold text-[var(--foreground)] hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isLoading}
+          onClick={() => void loadMeals()}
+          type="button"
+        >
           {isLoading ? "Refreshing..." : "Refresh"}
         </button>
       </div>
 
-      {error && <p className="rounded-xl bg-[var(--coral)]/10 p-4 text-sm font-semibold text-[var(--coral)]" role="alert">{error}</p>}
+      {error && <p className="rounded-xl bg-[var(--coral-soft)] p-4 text-sm font-semibold text-[var(--coral)]" role="alert">{error}</p>}
       {status && <p className="rounded-xl bg-[var(--leaf-light)] p-4 text-sm font-semibold text-[var(--leaf-ink)]" role="status">{status}</p>}
-      <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-[var(--ink-muted)]">
-        Log saved recipes as
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-sm font-semibold text-[var(--ink-muted)]" htmlFor="my-plans-meal-slot">
+          Log saved recipes as
+        </label>
         <select
-          aria-label="Meal event for saved meals"
-          className="min-h-11 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--foreground)]"
+          id="my-plans-meal-slot"
+          className="min-h-11 rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--foreground)] outline-none focus:border-[var(--leaf)]"
           value={mealType}
-          onChange={(event) => setMealType(event.target.value)}
+          onChange={(event) => setMealType(event.target.value as MealSlot)}
         >
-          <option value="breakfast">Breakfast</option>
-          <option value="lunch">Lunch</option>
-          <option value="dinner">Dinner</option>
-          <option value="snack">Snack</option>
+          {MEAL_SLOTS.map((slot) => (
+            <option key={slot.value} value={slot.value}>{slot.label}</option>
+          ))}
         </select>
-      </label>
+      </div>
 
       {isLoading ? (
-        <p className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 text-sm text-[var(--ink-muted)]">Loading your meals...</p>
+        <div className="grid gap-4 lg:grid-cols-2 animate-pulse">
+          <div className="h-52 rounded-2xl bg-[var(--surface-muted)]" />
+          <div className="h-52 rounded-2xl bg-[var(--surface-muted)]" />
+        </div>
       ) : meals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] p-8 text-center">
           <h3 className="font-bold text-[var(--foreground)]">No saved meals yet</h3>
-          <p className="mt-2 text-sm text-[var(--ink-muted)]">Find a meal using your ingredients or fork a public plan to save it here.</p>
+          <p className="mt-2 text-sm text-[var(--ink-muted)]">
+            Find a meal using your ingredients or save a copy of a public plan to see it here.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
@@ -244,50 +255,62 @@ export default function MyPlans() {
             };
             return (
               <article
-                className="relative flex flex-col w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-5 shadow-xs transition hover:shadow-sm"
+                className="relative flex w-full flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs transition-shadow hover:shadow-sm sm:p-5"
                 key={meal.id}
               >
                 {(recipe?.imageUrl || coverImages[meal.id]) && (
-                  <div className="-mx-4 -mt-4 sm:-mx-5 sm:-mt-5 mb-4 h-44 sm:h-48 shrink-0 overflow-hidden border-b border-[var(--line)]">
+                  <div className="-mx-4 -mt-4 mb-4 h-44 shrink-0 overflow-hidden border-b border-[var(--line)] sm:-mx-5 sm:-mt-5 sm:h-48">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={recipe?.imageUrl ?? coverImages[meal.id]}
                       alt={`${title} cover`}
+                      loading="lazy"
+                      decoding="async"
                       className="block h-full w-full object-cover"
                     />
                   </div>
                 )}
+
                 <div className="flex items-start justify-between gap-3">
-                  <div className="pr-11">
+                  <div className="min-w-0 flex-1">
                     <h3 className="line-clamp-1 text-base font-bold text-[var(--foreground)]">{title}</h3>
-                    <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${meal.visibility === "public" ? "bg-[var(--leaf-light)] text-[var(--leaf-ink)]" : "bg-[var(--surface-muted)] text-[var(--ink-muted)]"}`}>
+                    <span className="mt-1 inline-flex rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-bold text-[var(--ink-muted)]">
                       {meal.visibility === "public" ? "Public" : "Private"}
                     </span>
                     {!recipe?.manual && (
-                      <p className="mt-1 line-clamp-2 text-sm text-[var(--ink-muted)]">{recipe?.description ?? `${meal.meal_plan_items.length} food items in this meal plan.`}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-[var(--ink-muted)]">
+                        {recipe?.description ?? `${meal.meal_plan_items.length} food items in this meal plan.`}
+                      </p>
                     )}
                   </div>
+
+                  <button
+                    aria-label={meal.is_favorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`}
+                    aria-pressed={meal.is_favorite}
+                    className={`active-press grid size-11 shrink-0 place-items-center rounded-full border border-[var(--line)] bg-[var(--surface)] shadow-2xs transition-colors disabled:opacity-50 ${
+                      meal.is_favorite
+                        ? "text-[var(--sun)] hover:bg-[var(--surface-muted)]"
+                        : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--sun)]"
+                    }`}
+                    disabled={updatingFavoriteId === meal.id}
+                    onClick={() => void toggleFavorite(meal)}
+                    type="button"
+                  >
+                    <IconStar className="size-5" fill={meal.is_favorite ? "currentColor" : "none"} />
+                  </button>
                 </div>
-                <button
-                  aria-label={meal.is_favorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`}
-                  aria-pressed={meal.is_favorite}
-                  className={`absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full bg-[var(--surface)] shadow-sm transition-colors disabled:opacity-50 ${meal.is_favorite ? "text-amber-500 hover:bg-amber-500/10" : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-amber-500"}`}
-                  disabled={updatingFavoriteId === meal.id}
-                  onClick={() => void toggleFavorite(meal)}
-                  type="button"
-                >
-                  <svg aria-hidden="true" className="size-5" fill={meal.is_favorite ? "currentColor" : "none"} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" />
-                  </svg>
-                </button>
+
                 <p className="mt-3 min-h-4 text-xs font-semibold text-[var(--leaf-ink)]">
                   {recipe?.manual
-                    ? "Manual recipe"
-                    : recipe ? `${recipe.cookTimeMinutes} min · ${recipe.servings} servings` : "\u00a0"}
+                    ? `Manual recipe · ${recipe.servings} serving${recipe.servings === 1 ? "" : "s"}`
+                    : recipe
+                      ? `${recipe.cookTimeMinutes} min · ${recipe.servings} servings`
+                      : "\u00a0"}
                 </p>
+
                 {recipe?.manual && recipe.nutrition.calories <= 0 ? (
                   <p className="mt-3 rounded-xl bg-[var(--surface-muted)] p-3 text-xs text-[var(--ink-muted)]">
-                    Nutrition information wasn’t provided for this manual recipe.
+                    Nutrition information wasn&apos;t provided for this manual recipe.
                   </p>
                 ) : (
                   <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-2">
@@ -298,46 +321,46 @@ export default function MyPlans() {
                       ["Fat", `${Math.round(nutrition.fatG)}g`],
                     ].map(([label, value]) => (
                       <div className="rounded-xl bg-[var(--surface-muted)] p-2 text-center" key={label}>
-                        <p className="text-[10px] font-bold uppercase text-[var(--ink-muted)] truncate">{label}</p>
-                        <p className="mt-0.5 text-xs font-bold tabular-nums text-[var(--foreground)] truncate">{value}</p>
+                        <p className="truncate text-[10px] font-bold uppercase text-[var(--ink-muted)]">{label}</p>
+                        <p className="tabular-nums mt-0.5 truncate text-xs font-bold text-[var(--foreground)]">{value}</p>
                       </div>
                     ))}
                   </div>
                 )}
-                <div className="mt-4 border-t border-[var(--line)] pt-3">
+
+                <div className="mt-4 border-t border-[var(--line)] pt-2">
                   <button
                     aria-expanded={viewingMealId === meal.id}
                     aria-controls={`meal-details-${meal.id}`}
-                    className="cursor-pointer text-sm font-bold text-[var(--leaf-ink)]"
-                    onClick={() => setViewingMealId((current) => current === meal.id ? null : meal.id)}
+                    className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--leaf-ink)] hover:underline"
+                    onClick={() => setViewingMealId((current) => (current === meal.id ? null : meal.id))}
                     type="button"
                   >
                     {viewingMealId === meal.id ? "Hide details" : recipe ? "View recipe" : "View meal items"}
                   </button>
                   {viewingMealId === meal.id && (
-                    <div
-                      className="mt-3"
-                      id={`meal-details-${meal.id}`}
-                    >
+                    <div className="mt-2 pb-2" id={`meal-details-${meal.id}`}>
                       {recipe ? (
                         <>
                           <h4 className="text-sm font-bold text-[var(--foreground)]">Ingredients</h4>
-                          <ul className="mt-3 space-y-1 text-sm text-[var(--ink-muted)]">
+                          <ul className="mt-2 space-y-1 text-sm text-[var(--ink-muted)]">
                             {recipe.ingredients.map((ingredient, index) => (
                               <li key={`${ingredient.name}-${index}`}>{ingredient.name} — {ingredient.amount}</li>
                             ))}
                           </ul>
-                          <h4 className="mt-5 text-sm font-bold text-[var(--foreground)]">Cooking steps</h4>
-                          <ol className="mt-3 list-inside list-decimal space-y-2 text-sm leading-5 text-[var(--foreground)]">
+                          <h4 className="mt-4 text-sm font-bold text-[var(--foreground)]">Cooking steps</h4>
+                          <ol className="mt-2 list-inside list-decimal space-y-2 text-sm leading-5 text-[var(--foreground)]">
                             {recipe.steps.map((step, index) => <li key={`${step}-${index}`}>{step}</li>)}
                           </ol>
                         </>
                       ) : (
                         <>
                           <h4 className="text-sm font-bold text-[var(--foreground)]">Meal items</h4>
-                          <ul className="mt-3 space-y-1 text-sm text-[var(--ink-muted)]">
+                          <ul className="mt-2 space-y-1 text-sm text-[var(--ink-muted)]">
                             {meal.meal_plan_items.map((item) => (
-                              <li key={item.id}>{item.food_name} — {Math.round(Number(item.weight_g))} g ({Math.round(Number(item.calories))} kcal)</li>
+                              <li key={item.id}>
+                                {item.food_name} — {Math.round(Number(item.weight_g))}g ({Math.round(Number(item.calories))} kcal)
+                              </li>
                             ))}
                           </ul>
                         </>
@@ -345,28 +368,27 @@ export default function MyPlans() {
                     </div>
                   )}
                 </div>
+
                 <div className="mt-auto flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
                   <button
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="active-press inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={(recipe?.manual && recipe.nutrition.calories <= 0) || loggingId === meal.id || deletingId === meal.id}
-                    onClick={() => void logMeal(meal)}
+                    onClick={() => void logMealNow(meal)}
                     title={recipe?.manual && recipe.nutrition.calories <= 0 ? "Nutrition information is needed to log this recipe." : undefined}
                     type="button"
                   >
-                    <IconLog aria-hidden="true" className="size-4" />
-                    {loggingId === meal.id ? "Logging..." : "Log meal"}
+                    <IconLog className="size-4" />
+                    <span>{loggingId === meal.id ? "Logging..." : "Log meal"}</span>
                   </button>
                   <button
                     aria-label={`Remove ${title} from My Plans`}
                     title="Remove from My Plans"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[var(--coral)]/30 text-[var(--coral)] hover:bg-[var(--coral)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="active-press inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[var(--coral)]/40 text-[var(--coral)] hover:bg-[var(--coral-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={deletingId === meal.id || loggingId === meal.id}
-                    onClick={() => requestDeleteMeal(meal)}
+                    onClick={() => setPendingDeleteMeal(meal)}
                     type="button"
                   >
-                    <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6" />
-                    </svg>
+                    <IconTrash className="size-4" />
                   </button>
                 </div>
               </article>
@@ -374,46 +396,44 @@ export default function MyPlans() {
           })}
         </div>
       )}
-      {pendingFavoriteAction && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setPendingFavoriteAction(null)}>
-          <section
-            aria-labelledby="favorite-action-title"
-            aria-modal="true"
-            className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-            role="alertdialog"
+
+      <Dialog
+        open={Boolean(pendingDeleteMeal)}
+        onClose={() => setPendingDeleteMeal(null)}
+        role="alertdialog"
+        titleId="meal-delete-title"
+        descriptionId="meal-delete-description"
+      >
+        <h2 className="text-lg font-bold text-[var(--foreground)]" id="meal-delete-title">
+          Remove this meal?
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]" id="meal-delete-description">
+          Are you sure you want to remove{" "}
+          <strong className="text-[var(--foreground)]">{pendingDeleteMeal?.recipe?.title ?? pendingDeleteMeal?.name}</strong>?
+          {pendingDeleteMeal?.is_favorite ? " This removes it from My Plans and Favorites." : " This cannot be undone."}
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button
+            className="active-press min-h-11 rounded-xl border border-[var(--border-control)] text-sm font-bold text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
+            onClick={() => setPendingDeleteMeal(null)}
+            type="button"
           >
-            <h2 className="text-lg font-bold text-[var(--foreground)]" id="favorite-action-title">
-              Confirm removal
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">
-              Are you sure you want to remove{" "}
-              <strong className="text-[var(--foreground)]">{pendingFavoriteAction.meal.recipe?.title ?? pendingFavoriteAction.meal.name}</strong>?
-              This will remove it from My Plans and Favorites.
-            </p>
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                className="h-10 rounded-xl border border-[var(--line)] px-4 text-sm font-bold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
-                onClick={() => setPendingFavoriteAction(null)}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button
-                className="h-10 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)]"
-                onClick={() => {
-                  const pending = pendingFavoriteAction;
-                  setPendingFavoriteAction(null);
-                  void deleteMeal(pending.meal.id);
-                }}
-                type="button"
-              >
-                Remove meal
-              </button>
-            </div>
-          </section>
+            Keep meal
+          </button>
+          <button
+            className="active-press min-h-11 rounded-xl bg-[var(--coral)] text-sm font-bold text-[var(--on-coral)] hover:opacity-90"
+            onClick={() => {
+              if (!pendingDeleteMeal) return;
+              const target = pendingDeleteMeal;
+              setPendingDeleteMeal(null);
+              void deleteMeal(target.id);
+            }}
+            type="button"
+          >
+            Remove meal
+          </button>
         </div>
-      )}
+      </Dialog>
     </section>
   );
 }

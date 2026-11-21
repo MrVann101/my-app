@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconSearch } from "@/components/icons";
+import { IconX } from "@/components/icons";
 import { isKnownIngredient, suggestIngredientCorrection, suggestIngredients, type Recipe, type RecipeSuggestion } from "@/lib/recipes";
 
 const starterIngredients = ["chicken", "tomato", "rice", "eggs"];
@@ -25,9 +25,9 @@ function Nutrition({ nutrition }: { nutrition: Recipe["nutrition"] }) {
         ["Carbs", `${Math.round(nutrition.carbsG)}g`],
         ["Fat", `${Math.round(nutrition.fatG)}g`],
       ].map(([label, value]) => (
-        <div className="rounded-xl bg-[var(--surface-muted)] p-2 sm:p-2.5 text-center" key={label}>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--ink-muted)] truncate">{label}</p>
-          <p className="mt-0.5 text-xs sm:text-sm font-bold tabular-nums text-[var(--foreground)] truncate">{value}</p>
+        <div className="rounded-xl bg-[var(--surface-muted)] p-2 text-center sm:p-2.5" key={label}>
+          <p className="truncate text-[10px] font-bold uppercase tracking-wide text-[var(--ink-muted)]">{label}</p>
+          <p className="tabular-nums mt-0.5 truncate text-xs font-bold text-[var(--foreground)] sm:text-sm">{value}</p>
         </div>
       ))}
     </div>
@@ -59,11 +59,14 @@ export default function RecipeFinder() {
   const suggestionRequestId = useRef(0);
   const currentIngredient = ingredientInput.split(",").at(-1) ?? "";
   const ingredientSuggestions = suggestIngredients(currentIngredient);
-  const ingredientEntries = ingredientInput.split(",").map((value, index) => ({
-    index,
-    typed: value.trim(),
-    suggested: suggestIngredientCorrection(value),
-  })).filter((entry) => entry.typed);
+  const ingredientEntries = ingredientInput
+    .split(",")
+    .map((value, index) => ({
+      index,
+      typed: value.trim(),
+      suggested: suggestIngredientCorrection(value),
+    }))
+    .filter((entry) => entry.typed);
   const spellingSuggestions = ingredientEntries.filter((entry) => entry.suggested !== null);
   const unrecognizedIngredients = ingredientEntries.filter((entry) => !entry.suggested && !isKnownIngredient(entry.typed));
 
@@ -112,12 +115,9 @@ export default function RecipeFinder() {
   }
 
   function submitIngredientSearch() {
-    const selectedSuggestion = suggestIngredientCorrection(currentIngredient) ?? (
-      !ingredientInput.includes(",")
-        ? ingredientSuggestions[0]
-        : undefined
-    );
-    addIngredient(selectedSuggestion ?? ingredientInput);
+    const chosen =
+      suggestIngredientCorrection(currentIngredient) ?? (!ingredientInput.includes(",") ? ingredientSuggestions[0] : undefined);
+    addIngredient(chosen ?? ingredientInput);
   }
 
   async function requestJson(url: string, body: unknown) {
@@ -201,7 +201,7 @@ export default function RecipeFinder() {
       setSuggestions((current) => current.filter((suggestion) => suggestion !== savedSuggestion));
       setSelectedSuggestion(null);
       setSelectedRecipe(null);
-      setStatus(`Saved ${savedTitle} to My Plans.`);
+      setStatus(`Saved "${savedTitle}" to My Plans.`);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to save this meal.");
     } finally {
@@ -229,31 +229,33 @@ export default function RecipeFinder() {
         >
           <div className="relative min-w-0 flex-1">
             <label className="sr-only" htmlFor="available-ingredients">Available ingredients</label>
-            <input
-              id="available-ingredients"
-              className="h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--background)] px-4 pr-12 text-sm outline-none focus:border-[var(--leaf)]"
-              placeholder="Try chicken, tomatoes, rice..."
-              value={ingredientInput}
-              onChange={(event) => {
-                setIngredientInput(event.target.value);
-                setError(null);
-              }}
-              autoComplete="off"
-            />
-            <button
-              aria-label="Add ingredient"
-              className="absolute right-1.5 top-1.5 grid size-9 place-items-center rounded-lg text-[var(--leaf-ink)] hover:bg-[var(--leaf-light)] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!ingredientInput.trim() || spellingSuggestions.length > 0 || unrecognizedIngredients.length > 0}
-              type="submit"
-            >
-              <IconSearch aria-hidden="true" className="size-5" />
-            </button>
+            <div className="flex gap-2">
+              <input
+                id="available-ingredients"
+                className="h-12 w-full rounded-xl border border-[var(--border-control)] bg-[var(--background)] px-4 text-sm outline-none focus:border-[var(--leaf)]"
+                placeholder="Try chicken, tomato, rice..."
+                value={ingredientInput}
+                onChange={(event) => {
+                  setIngredientInput(event.target.value);
+                  setError(null);
+                }}
+                autoComplete="off"
+              />
+              <button
+                aria-label="Add ingredient"
+                className="active-press inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-[var(--leaf)] px-4 text-xs font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!ingredientInput.trim() || spellingSuggestions.length > 0 || unrecognizedIngredients.length > 0}
+                type="submit"
+              >
+                + Add
+              </button>
+            </div>
             {ingredientSuggestions.length > 0 && !ingredientInput.includes(",") && (
               <ul className="absolute inset-x-0 z-10 mt-1 max-h-52 overflow-y-auto rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 shadow-lg" aria-label="Ingredient suggestions">
                 {ingredientSuggestions.slice(0, 6).map((ingredient) => (
                   <li key={ingredient}>
                     <button
-                      className="w-full rounded-lg px-3 py-2 text-left text-sm capitalize hover:bg-[var(--surface-muted)]"
+                      className="min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm capitalize hover:bg-[var(--surface-muted)]"
                       onClick={() => addIngredient(ingredient)}
                       type="button"
                     >
@@ -288,11 +290,14 @@ export default function RecipeFinder() {
           {ingredients.length > 0 && <p className="mb-2 text-xs font-bold text-[var(--ink-muted)]">Selected ingredients</p>}
           <div className="flex flex-wrap gap-2">
             {ingredients.map((ingredient) => (
-              <span className="inline-flex items-center gap-2 rounded-full bg-[var(--leaf-light)] px-3 py-1.5 text-xs font-semibold text-[var(--leaf-ink)]" key={ingredient}>
-                {ingredient}
+              <span
+                className="inline-flex min-h-11 items-center gap-1 rounded-full bg-[var(--leaf-light)] pl-3.5 pr-1 text-xs font-semibold text-[var(--leaf-ink)]"
+                key={ingredient}
+              >
+                <span>{ingredient}</span>
                 <button
                   aria-label={`Remove ${ingredient}`}
-                  className="rounded-full text-[var(--leaf-ink)] hover:text-[var(--coral)]"
+                  className="grid size-9 place-items-center rounded-full text-[var(--leaf-ink)] hover:bg-[var(--coral-soft)] hover:text-[var(--coral)]"
                   onClick={() => {
                     generationRequestId.current += 1;
                     suggestionRequestId.current += 1;
@@ -305,7 +310,7 @@ export default function RecipeFinder() {
                   }}
                   type="button"
                 >
-                  ×
+                  <IconX className="size-3.5" />
                 </button>
               </span>
             ))}
@@ -313,7 +318,12 @@ export default function RecipeFinder() {
               <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ink-muted)]">
                 <span>Quick add:</span>
                 {starterIngredients.map((ingredient) => (
-                  <button className="rounded-full border border-[var(--line)] px-3 py-1.5 font-semibold hover:border-[var(--leaf)]" key={ingredient} onClick={() => addIngredient(ingredient)} type="button">
+                  <button
+                    className="active-press min-h-11 rounded-full border border-[var(--border-control)] px-3.5 font-semibold hover:border-[var(--leaf)]"
+                    key={ingredient}
+                    onClick={() => addIngredient(ingredient)}
+                    type="button"
+                  >
                     {ingredient}
                   </button>
                 ))}
@@ -323,7 +333,7 @@ export default function RecipeFinder() {
         </div>
 
         <button
-          className="mt-5 h-12 w-full rounded-xl bg-[var(--leaf)] px-5 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          className="active-press mt-5 h-12 w-full rounded-xl bg-[var(--leaf)] px-5 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           disabled={ingredients.length === 0 || isSuggesting || isGenerating}
           onClick={() => void findMeals()}
           type="button"
@@ -333,7 +343,14 @@ export default function RecipeFinder() {
       </section>
 
       {(error || status) && (
-        <p className={`rounded-xl border p-4 text-sm font-semibold ${error ? "border-[var(--coral)]/30 bg-[var(--coral)]/10 text-[var(--coral)]" : "border-[var(--leaf)]/30 bg-[var(--leaf-light)] text-[var(--leaf-ink)]"}`} role={error ? "alert" : "status"}>
+        <p
+          className={`rounded-xl border p-4 text-sm font-semibold ${
+            error
+              ? "border-[var(--coral)]/30 bg-[var(--coral-soft)] text-[var(--coral)]"
+              : "border-[var(--leaf)]/30 bg-[var(--leaf-light)] text-[var(--leaf-ink)]"
+          }`}
+          role={error ? "alert" : "status"}
+        >
           {error ?? status}
         </p>
       )}
@@ -342,120 +359,109 @@ export default function RecipeFinder() {
         <section className="space-y-4" aria-labelledby="meal-suggestions-title">
           <div>
             <h2 className="text-lg font-bold text-[var(--foreground)]" id="meal-suggestions-title">Meals you can make</h2>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">Choose one to get the ingredient amounts and step-by-step instructions.</p>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">Choose one to get ingredient amounts and step-by-step instructions.</p>
           </div>
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
             {suggestions.map((suggestion) => {
               const isSelected = selectedSuggestion === suggestion;
               return (
-                <div className="mb-4 inline-block w-full break-inside-avoid" key={suggestionKey(suggestion)}>
-                  <article
-                    className={`rounded-2xl border bg-[var(--surface)] p-5 shadow-xs ${isSelected ? "border-[var(--leaf)] ring-1 ring-[var(--leaf)]" : "border-[var(--line)]"}`}
-                  >
-                    <div className="flex flex-col">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="line-clamp-1 text-base font-bold text-[var(--foreground)]">{suggestion.title}</h3>
-                          <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--ink-muted)]">{suggestion.description}</p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--ink-muted)]">
-                          {suggestion.cookTimeMinutes} min
-                        </span>
+                <article
+                  key={suggestionKey(suggestion)}
+                  className={`rounded-2xl border bg-[var(--surface)] p-5 shadow-xs ${
+                    isSelected ? "border-[var(--leaf)] ring-1 ring-[var(--leaf)]" : "border-[var(--line)]"
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="line-clamp-1 text-base font-bold text-[var(--foreground)]">{suggestion.title}</h3>
+                        <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--ink-muted)]">{suggestion.description}</p>
                       </div>
-                      <div className="mt-4">
-                        <Nutrition nutrition={suggestion.nutrition} />
-                      </div>
-                      <p className="mt-2 min-h-4 text-[11px] text-[var(--ink-muted)]">
-                        Estimated per serving · {suggestion.servings} servings
-                      </p>
-                      <div className="mt-6">
-                        <button
-                          className="h-10 w-full rounded-xl border border-[var(--leaf)] text-sm font-bold text-[var(--leaf-ink)] hover:bg-[var(--leaf-light)] disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={isSelected && (isGenerating || Boolean(selectedRecipe))}
-                          onClick={() => void chooseMeal(suggestion)}
-                          type="button"
-                        >
-                          {isGenerating && isSelected
-                            ? "Generating recipe..."
-                            : isSelected && selectedRecipe
-                              ? "Recipe ready"
-                              : "Choose this meal"}
-                        </button>
-                      </div>
+                      <span className="shrink-0 rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--ink-muted)]">
+                        {suggestion.cookTimeMinutes} min
+                      </span>
                     </div>
-                    {isSelected && (
-                      <div className="mt-5 border-t border-[var(--line)] pt-5">
-                        {!selectedRecipe ? (
-                          <div>
-                            <p className="text-sm font-semibold text-[var(--leaf-ink)]" role="status">
-                              {isGenerating ? "Generating this recipe..." : "Recipe generation did not finish."}
-                            </p>
-                            {!isGenerating && (
-                              <button
-                                className="mt-3 h-10 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)]"
-                                onClick={() => void chooseMeal(suggestion)}
-                                type="button"
-                              >
-                                Try again
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <h4 className="text-lg font-bold text-[var(--foreground)]">{selectedRecipe.title}</h4>
-                                <p className="mt-1 text-sm text-[var(--ink-muted)]">{selectedRecipe.description}</p>
-                              </div>
-                              <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-semibold text-[var(--ink-muted)]">
-                                {selectedRecipe.cookTimeMinutes} min · {selectedRecipe.servings} servings
-                              </span>
-                            </div>
-                            <div className="mt-4">
-                              <Nutrition nutrition={selectedRecipe.nutrition} />
-                              <p className="mt-2 text-[11px] text-[var(--ink-muted)]">Estimated nutrition per serving</p>
-                            </div>
-                            <div className="mt-6 grid gap-6 md:grid-cols-2">
-                              <div>
-                                <h4 className="text-sm font-bold text-[var(--foreground)]">Ingredients</h4>
-                                <ul className="mt-3 space-y-2">
-                                  {selectedRecipe.ingredients.map((ingredient, ingredientIndex) => (
-                                    <li className="flex justify-between gap-3 border-b border-[var(--line)] pb-2 text-sm" key={`${ingredient.name}-${ingredientIndex}`}>
-                                      <span className="text-[var(--foreground)]">
-                                        {ingredient.name}
-                                        {ingredient.pantryStaple ? <span className="ml-1 text-xs text-[var(--ink-muted)]">(pantry staple)</span> : null}
-                                      </span>
-                                      <span className="shrink-0 font-semibold text-[var(--ink-muted)]">{ingredient.amount}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-bold text-[var(--foreground)]">Cooking steps</h4>
-                                <ol className="mt-3 space-y-3">
-                                  {selectedRecipe.steps.map((step, stepIndex) => (
-                                    <li className="flex gap-3 text-sm leading-6 text-[var(--foreground)]" key={`${step}-${stepIndex}`}>
-                                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--leaf-light)] text-xs font-bold text-[var(--leaf-ink)]">{stepIndex + 1}</span>
-                                      {step}
-                                    </li>
-                                  ))}
-                                </ol>
-                              </div>
-                            </div>
+                    <div className="mt-4">
+                      <Nutrition nutrition={suggestion.nutrition} />
+                    </div>
+                    <p className="mt-2 min-h-4 text-[11px] text-[var(--ink-muted)]">
+                      Estimated per serving · {suggestion.servings} servings
+                    </p>
+                    <div className="mt-5">
+                      <button
+                        className="active-press min-h-11 w-full rounded-xl border border-[var(--leaf)] text-sm font-bold text-[var(--leaf-ink)] hover:bg-[var(--leaf-light)] disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={isSelected && (isGenerating || Boolean(selectedRecipe))}
+                        onClick={() => void chooseMeal(suggestion)}
+                        type="button"
+                      >
+                        {isGenerating && isSelected
+                          ? "Generating recipe..."
+                          : isSelected && selectedRecipe
+                            ? "Recipe ready below"
+                            : "Choose this meal"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {isSelected && (
+                    <div className="mt-5 border-t border-[var(--line)] pt-5">
+                      {!selectedRecipe ? (
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--leaf-ink)]" role="status">
+                            {isGenerating ? "Generating this recipe..." : "Recipe generation did not finish."}
+                          </p>
+                          {!isGenerating && (
                             <button
-                              className="mt-6 h-11 w-full rounded-xl bg-[var(--leaf)] px-5 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:opacity-50 sm:w-auto"
-                              disabled={isSaving}
-                              onClick={() => void saveMeal()}
+                              className="active-press mt-3 min-h-11 rounded-xl bg-[var(--leaf)] px-4 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)]"
+                              onClick={() => void chooseMeal(suggestion)}
                               type="button"
                             >
-                              {isSaving ? "Saving..." : "Save in My Plans"}
+                              Try again
                             </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </article>
-                </div>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid gap-6 md:grid-cols-2">
+                            <div>
+                              <h4 className="text-sm font-bold text-[var(--foreground)]">Ingredients</h4>
+                              <ul className="mt-3 space-y-2">
+                                {selectedRecipe.ingredients.map((ingredient, ingredientIndex) => (
+                                  <li className="flex justify-between gap-3 border-b border-[var(--line)] pb-2 text-sm" key={`${ingredient.name}-${ingredientIndex}`}>
+                                    <span className="text-[var(--foreground)]">
+                                      {ingredient.name}
+                                      {ingredient.pantryStaple ? <span className="ml-1 text-xs text-[var(--ink-muted)]">(pantry staple)</span> : null}
+                                    </span>
+                                    <span className="shrink-0 font-semibold text-[var(--ink-muted)]">{ingredient.amount}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-[var(--foreground)]">Cooking steps</h4>
+                              <ol className="mt-3 space-y-3">
+                                {selectedRecipe.steps.map((step, stepIndex) => (
+                                  <li className="flex gap-3 text-sm leading-6 text-[var(--foreground)]" key={`${step}-${stepIndex}`}>
+                                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--leaf-light)] text-xs font-bold text-[var(--leaf-ink)]">{stepIndex + 1}</span>
+                                    <span>{step}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          </div>
+                          <button
+                            className="active-press mt-6 min-h-11 w-full rounded-xl bg-[var(--leaf)] px-5 text-sm font-bold text-[var(--on-leaf)] hover:bg-[var(--leaf-deep)] disabled:opacity-50 sm:w-auto"
+                            disabled={isSaving}
+                            onClick={() => void saveMeal()}
+                            type="button"
+                          >
+                            {isSaving ? "Saving..." : "Save in My Plans"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </article>
               );
             })}
           </div>

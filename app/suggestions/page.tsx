@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import AppShell from "@/components/app-shell";
-import { IconSparkles, IconLog } from "@/components/icons";
 import Link from "next/link";
+import AppShell from "@/components/app-shell";
+import { IconCheck, IconLog, IconSparkles } from "@/components/icons";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
+import { defaultMealTypeByHour } from "@/lib/meal-slot";
 
 type Suggestion = {
   title: string;
@@ -36,20 +37,23 @@ export default function SuggestionsPage() {
       suggestions.forEach((suggestion) => params.append("exclude", suggestion.title));
       const response = await fetch(`/api/suggestions?${params.toString()}`);
       const payload = await response.json();
-      setIsLoading(false);
       if (!response.ok) {
         setError(payload.error?.message ?? "Suggestions are currently unavailable.");
         return;
       }
       setRemainingCalories(payload.remainingCalories ?? null);
       setLogDate(payload.date ?? null);
-      setSuggestions((payload.suggestions ?? []).filter((suggestion: Suggestion) =>
-        typeof payload.remainingCalories === "number" && suggestion.estimatedCalories <= payload.remainingCalories
-      ));
+      setSuggestions(
+        (payload.suggestions ?? []).filter(
+          (suggestion: Suggestion) =>
+            typeof payload.remainingCalories === "number" && suggestion.estimatedCalories <= payload.remainingCalories,
+        ),
+      );
       setProvider(payload.providerUsed ?? null);
     } catch {
+      setError("Unable to load suggestions. Check your connection and try again.");
+    } finally {
       setIsLoading(false);
-      setError("Unable to load suggestions.");
     }
   }
 
@@ -65,7 +69,6 @@ export default function SuggestionsPage() {
         const payload = await response.json();
 
         if (!active) return;
-        setIsLoading(false);
 
         if (!response.ok) {
           setError(payload.error?.message ?? "Suggestions are currently unavailable.");
@@ -74,14 +77,18 @@ export default function SuggestionsPage() {
 
         setRemainingCalories(payload.remainingCalories ?? null);
         setLogDate(payload.date ?? null);
-        setSuggestions((payload.suggestions ?? []).filter((suggestion: Suggestion) =>
-          typeof payload.remainingCalories === "number" && suggestion.estimatedCalories <= payload.remainingCalories
-        ));
+        setSuggestions(
+          (payload.suggestions ?? []).filter(
+            (suggestion: Suggestion) =>
+              typeof payload.remainingCalories === "number" && suggestion.estimatedCalories <= payload.remainingCalories,
+          ),
+        );
         setProvider(payload.providerUsed ?? null);
       } catch {
         if (!active) return;
-        setIsLoading(false);
         setError("Unable to load suggestions.");
+      } finally {
+        if (active) setIsLoading(false);
       }
     }
 
@@ -97,13 +104,14 @@ export default function SuggestionsPage() {
     setLoggedStatus(null);
     setLoggingSuggestions((current) => new Set(current).add(suggestion));
     try {
+      const mealType = defaultMealTypeByHour();
       const response = await fetch("/api/food/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           logDate: logDate ?? getBrowserDate(),
           timezone: getBrowserTimezone(),
-          mealType: "snack",
+          mealType,
           foodName: suggestion.title,
           weightG: 150,
           nutrientRate: {
@@ -127,7 +135,7 @@ export default function SuggestionsPage() {
         return;
       }
       setLoggedSuggestions((current) => new Set(current).add(suggestion));
-      setLoggedStatus(`✓ Added "${suggestion.title}" (${Math.round(suggestion.estimatedCalories)} kcal) to today's log!`);
+      setLoggedStatus(`Added "${suggestion.title}" (${Math.round(suggestion.estimatedCalories)} kcal) to ${mealType}.`);
     } catch (logError) {
       setError(logError instanceof Error ? logError.message : "Unable to log suggestion.");
     } finally {
@@ -142,8 +150,7 @@ export default function SuggestionsPage() {
   return (
     <AppShell eyebrow="AI Ideas" title="AI Suggestions">
       <div className="space-y-6">
-        {/* Banner */}
-        <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs sm:p-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-4 rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs sm:flex-row sm:items-center sm:p-7">
           <div>
             <h2 className="text-base font-bold text-[var(--foreground)]">Smart Meal Ideas</h2>
             <p className="mt-1 text-xs text-[var(--ink-muted)]">
@@ -154,7 +161,7 @@ export default function SuggestionsPage() {
             type="button"
             disabled={isLoading}
             onClick={() => void loadSuggestions()}
-            className="hover-lift active-press inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
+            className="hover-lift active-press inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--leaf)] px-4 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:opacity-50"
           >
             <IconSparkles className="size-4" />
             <span>{isLoading ? "Generating..." : "Generate New Ideas"}</span>
@@ -162,13 +169,19 @@ export default function SuggestionsPage() {
         </div>
 
         {loggedStatus && (
-          <div className="rounded-2xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-ink)]">
-            {loggedStatus}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-ink)]" role="status">
+            <span className="inline-flex items-center gap-1.5">
+              <IconCheck className="size-4 shrink-0" />
+              <span>{loggedStatus}</span>
+            </span>
+            <Link href="/dashboard" className="underline underline-offset-2 hover:opacity-80">
+              View Dashboard →
+            </Link>
           </div>
         )}
 
         {error && (
-          <div className="rounded-2xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-4 text-xs font-bold text-[var(--coral)]" role="alert">
+          <div className="rounded-2xl border border-[var(--coral)]/30 bg-[var(--coral-soft)] p-4 text-xs font-bold text-[var(--coral)]" role="alert">
             {error}
           </div>
         )}
@@ -179,7 +192,6 @@ export default function SuggestionsPage() {
           </p>
         )}
 
-        {/* Loading State */}
         {isLoading && (
           <div className="space-y-4 animate-pulse">
             <div className="h-32 rounded-2xl bg-[var(--surface-muted)]" />
@@ -188,33 +200,32 @@ export default function SuggestionsPage() {
           </div>
         )}
 
-        {/* Suggestions List */}
         {!isLoading && suggestions.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2">
             {suggestions.map((suggestion, index) => (
               <div
                 key={`${suggestion.title}-${index}`}
-                className="hover-lift rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs transition-all hover:border-[var(--leaf)]/50 flex flex-col justify-between"
+                className="hover-lift flex flex-col justify-between rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs transition-colors hover:border-[var(--leaf)]/50"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-base font-bold text-[var(--foreground)]">{suggestion.title}</h3>
-                    <span className="tabular-nums rounded-full bg-[var(--leaf-light)] px-3 py-1 text-xs font-extrabold text-[var(--leaf)]">
+                    <span className="tabular-nums shrink-0 rounded-full bg-[var(--leaf-light)] px-3 py-1 text-xs font-extrabold text-[var(--leaf-ink)]">
                       {Math.round(suggestion.estimatedCalories)} kcal
                     </span>
                   </div>
                   <p className="mt-2 text-xs leading-relaxed text-[var(--ink-muted)]">{suggestion.description}</p>
                 </div>
 
-                <div className="mt-5 border-t border-[var(--line)]/50 pt-4 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[var(--leaf-ink)]">
+                <div className="mt-5 flex items-center justify-between border-t border-[var(--line)]/50 pt-4">
+                  <span className="tabular-nums text-xs font-bold text-[var(--leaf-ink)]">
                     ~{Math.round(suggestion.proteinG)}g Protein
                   </span>
                   <button
                     type="button"
                     disabled={loggingSuggestions.has(suggestion) || loggedSuggestions.has(suggestion)}
                     onClick={() => void logSuggestion(suggestion)}
-                    className="active-press inline-flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-3.5 py-2 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="active-press inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-4 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <IconLog className="size-3.5" />
                     <span>
@@ -231,22 +242,30 @@ export default function SuggestionsPage() {
           </div>
         )}
 
-        {/* Empty state */}
         {!isLoading && suggestions.length === 0 && !error && (
           <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-8 text-center shadow-xs">
             <p className="text-sm font-semibold text-[var(--foreground)]">
-              {remainingCalories !== null && remainingCalories <= 0 ? "You have no calories remaining today." : "No suggestions loaded right now."}
+              {remainingCalories !== null && remainingCalories <= 0
+                ? "You have no calories remaining today."
+                : "No suggestions loaded right now."}
             </p>
             <p className="mt-1 text-xs text-[var(--ink-muted)]">
-              {remainingCalories !== null && remainingCalories <= 0
-                ? "Log exercise or generate ideas tomorrow to see meal suggestions."
-                : "Click &quot;Generate New Ideas&quot; above to fetch AI recommendations."}
+              {remainingCalories !== null && remainingCalories <= 0 ? (
+                <>
+                  <Link href="/dashboard" className="font-semibold text-[var(--leaf)] underline">
+                    Log exercise on Dashboard
+                  </Link>{" "}
+                  or check back tomorrow for new meal suggestions.
+                </>
+              ) : (
+                'Click "Generate New Ideas" above to fetch AI recommendations.'
+              )}
             </p>
           </div>
         )}
 
-        <div className="text-center pt-4">
-          <Link href="/dashboard" className="text-xs font-bold text-[var(--leaf)] hover:underline">
+        <div className="pt-4 text-center">
+          <Link href="/dashboard" className="inline-flex min-h-11 items-center px-3 text-xs font-bold text-[var(--leaf)] hover:underline">
             ← Return to Dashboard
           </Link>
         </div>

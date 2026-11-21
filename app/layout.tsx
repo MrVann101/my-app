@@ -15,13 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bitewise | Nordic Calorie & Nutrition",
+  title: "Bitewise | Calm Calorie & Nutrition",
   description: "A calm, precision view of your meals, macros, and daily targets.",
   manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b1320",
+  themeColor: "#13110e",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -38,10 +38,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => {
-  const saved = localStorage.getItem("bitewise-theme");
-  const theme = saved === "light" || saved === "dark" ? saved : "dark";
+  let theme = "dark";
+  try {
+    const saved = localStorage.getItem("bitewise-theme");
+    if (saved === "light" || saved === "dark") theme = saved;
+  } catch {}
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0b1320" : "#eef7ff");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#13110e" : "#faf7f2");
 })()`,
           }}
         />

@@ -11,5 +11,9 @@ export default function OfflineBanner() {
     window.addEventListener("offline", update);
     return () => { window.clearTimeout(timer); window.removeEventListener("online", update); window.removeEventListener("offline", update); };
   }, []);
-  return offline ? <div className="fixed inset-x-0 top-0 z-50 bg-[var(--sun)] px-4 py-2 text-center text-sm font-semibold text-[var(--foreground)]" role="status">You&apos;re offline. Saving changes is paused until you reconnect.</div> : null;
+  return offline ? (
+    <div className="sticky top-0 z-50 bg-[var(--sun)] px-4 py-2 text-center text-sm font-semibold text-[var(--on-sun)] shadow-xs" role="status">
+      You&apos;re offline. Saving changes is paused until you reconnect.
+    </div>
+  ) : null;
 }

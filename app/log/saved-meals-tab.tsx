@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { IconMealPlans, IconSparkles } from "@/components/icons";
+import { IconCheck, IconMealPlans, IconSparkles, IconX } from "@/components/icons";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
+import { defaultMealTypeByHour, MEAL_SLOTS, normalizeMealSlot, type MealSlot } from "@/lib/meal-slot";
 
 type SavedMeal = {
   id: number;
@@ -29,21 +30,26 @@ type SavedMeal = {
   }[];
 };
 
-function defaultMealTypeByHour(): "breakfast" | "lunch" | "dinner" | "snack" {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 11) return "breakfast";
-  if (hour >= 11 && hour < 15) return "lunch";
-  if (hour >= 17 && hour < 22) return "dinner";
-  return "snack";
-}
-
-export default function SavedMealsTab() {
+export default function SavedMealsTab({ initialMealType }: { initialMealType?: string } = {}) {
   const [meals, setMeals] = useState<SavedMeal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loggingId, setLoggingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<"breakfast" | "lunch" | "dinner" | "snack">(defaultMealTypeByHour);
+  const [selectedSlot, setSelectedSlot] = useState<MealSlot>(() => normalizeMealSlot(initialMealType) ?? "snack");
+  const userChangedSlot = useRef(false);
+
+  useEffect(() => {
+    const normalized = normalizeMealSlot(initialMealType);
+    const timer = window.setTimeout(() => {
+      if (normalized) {
+        setSelectedSlot(normalized);
+      } else if (!userChangedSlot.current) {
+        setSelectedSlot(defaultMealTypeByHour());
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [initialMealType]);
 
   useEffect(() => {
     let active = true;
@@ -83,7 +89,7 @@ export default function SavedMealsTab() {
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error?.message ?? "Unable to log this meal plan.");
-        setStatus(`Logged "${meal.name}" as ${selectedSlot} (${meal.total_calories.toLocaleString()} kcal) to today's food journal.`);
+        setStatus(`Logged "${meal.name}" as ${selectedSlot} (${meal.total_calories.toLocaleString()} kcal).`);
         return;
       }
 
@@ -113,7 +119,7 @@ export default function SavedMealsTab() {
       });
       const logPayload = await logResponse.json();
       if (!logResponse.ok) throw new Error(logPayload.error?.message ?? "Unable to log this recipe.");
-      setStatus(`Logged "${recipe.title}" as ${selectedSlot} (${recipe.nutrition.calories.toLocaleString()} kcal) to today's food journal.`);
+      setStatus(`Logged "${recipe.title}" as ${selectedSlot} (${recipe.nutrition.calories.toLocaleString()} kcal).`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log meal.");
     } finally {
@@ -123,35 +129,32 @@ export default function SavedMealsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Slot Selector */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-3">
-        <span className="text-xs font-bold text-[var(--foreground)]">Log as meal slot:</span>
-        <div className="flex flex-wrap gap-1.5">
-          {(["breakfast", "lunch", "dinner", "snack"] as const).map((slot) => (
+        <span className="text-xs font-bold text-[var(--foreground)]">Log into meal slot:</span>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Meal slot">
+          {MEAL_SLOTS.map((slot) => (
             <button
-              key={slot}
+              key={slot.value}
               type="button"
-              onClick={() => setSelectedSlot(slot)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
-                selectedSlot === slot
+              aria-pressed={selectedSlot === slot.value}
+              onClick={() => {
+                userChangedSlot.current = true;
+                setSelectedSlot(slot.value);
+              }}
+              className={`active-press min-h-11 rounded-xl px-3.5 text-xs font-semibold capitalize transition-colors ${
+                selectedSlot === slot.value
                   ? "bg-[var(--leaf)] text-[var(--on-leaf)] shadow-2xs"
-                  : "bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--foreground)]"
+                  : "border border-[var(--border-control)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--foreground)]"
               }`}
             >
-              {slot}
+              {slot.label}
             </button>
           ))}
         </div>
       </div>
 
-      {status && (
-        <div className="rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-medium text-[var(--leaf-ink)]" role="status">
-          ✓ {status}
-        </div>
-      )}
-
       {error && (
-        <p className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-4 text-xs font-semibold text-[var(--coral)]" role="alert">
+        <p className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral-soft)] p-4 text-xs font-semibold text-[var(--coral)]" role="alert">
           {error}
         </p>
       )}
@@ -164,13 +167,13 @@ export default function SavedMealsTab() {
       ) : meals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--line)] p-8 text-center">
           <IconMealPlans className="mx-auto size-8 text-[var(--ink-muted)]" />
-          <h3 className="mt-2 text-sm font-bold text-[var(--foreground)]">No saved recipes or meals yet</h3>
+          <h2 className="mt-2 text-sm font-bold text-[var(--foreground)]">No saved recipes or meals yet</h2>
           <p className="mt-1 text-xs text-[var(--ink-muted)]">
-            Create custom recipes or find meals in Meal Plans to log them here in 1 tap.
+            Create custom recipes or save meals in Meal Plans to log them here in 1 tap.
           </p>
           <Link
             href="/meal-plans"
-            className="active-press mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
+            className="active-press mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-4 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
           >
             <IconSparkles className="size-3.5" />
             <span>Go to Meal Plans</span>
@@ -195,7 +198,7 @@ export default function SavedMealsTab() {
             return (
               <div
                 key={meal.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-2xs hover:border-[var(--leaf)]/40 transition-colors"
+                className="flex flex-col justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-2xs transition-colors hover:border-[var(--leaf)]/40 sm:flex-row sm:items-center"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -226,6 +229,31 @@ export default function SavedMealsTab() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {status && (
+        <div
+          className="fixed bottom-24 left-4 right-4 z-30 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-[var(--leaf)] bg-[var(--leaf-light)] px-4 py-3 text-xs font-bold text-[var(--leaf-ink)] shadow-lg md:bottom-6"
+          role="status"
+        >
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <IconCheck className="size-4 shrink-0" />
+            <span className="truncate">{status}</span>
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link href="/dashboard" className="underline underline-offset-2 hover:opacity-80">
+              Dashboard
+            </Link>
+            <button
+              type="button"
+              onClick={() => setStatus(null)}
+              aria-label="Dismiss message"
+              className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]/50"
+            >
+              <IconX className="size-3.5" />
+            </button>
+          </div>
         </div>
       )}
     </div>

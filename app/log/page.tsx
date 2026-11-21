@@ -4,85 +4,115 @@ import { Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import LogFoodForm from "./log-food-form";
+import PhotoFoodForm from "./photo-food-form";
 import TextFoodForm from "./text-food-form";
 import Favorites from "./favorites";
 import SavedMealsTab from "./saved-meals-tab";
-import { IconLog, IconMealPlans, IconSparkles, IconStar } from "@/components/icons";
+import { IconCamera, IconLog, IconMealPlans, IconSparkles, IconStar } from "@/components/icons";
 
-type LogTab = "search" | "saved" | "text" | "favorites";
+type LogTab = "search" | "photo" | "saved" | "text" | "favorites";
+
+const LOG_TABS: { id: LogTab; label: string; icon: typeof IconLog }[] = [
+  { id: "search", label: "Search & Custom", icon: IconLog },
+  { id: "photo", label: "Photo AI", icon: IconCamera },
+  { id: "saved", label: "Saved Meals", icon: IconMealPlans },
+  { id: "text", label: "Text AI", icon: IconSparkles },
+  { id: "favorites", label: "Favorites", icon: IconStar },
+];
 
 function LogContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const tabParam = searchParams.get("tab");
-  const initialTab: LogTab =
-    tabParam === "saved" || tabParam === "text" || tabParam === "favorites" || tabParam === "search" ? tabParam : "search";
-  const activeTab = initialTab;
+  const mealParam = searchParams.get("meal") ?? undefined;
+
+  const activeTab: LogTab =
+    tabParam === "photo" || tabParam === "saved" || tabParam === "text" || tabParam === "favorites" || tabParam === "search"
+      ? tabParam
+      : "search";
 
   function selectTab(tab: LogTab) {
-    router.replace(`${pathname}?tab=${tab}`, { scroll: false });
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tab);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   return (
     <div className="space-y-6">
-      {/* Segmented View Controller Tabs */}
-      <nav
-        aria-label="Input Method Tabs"
-        className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs"
+      <div
+        role="tablist"
+        aria-label="Food logging methods"
+        className="flex gap-1.5 overflow-x-auto rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-xs sm:grid sm:grid-cols-5"
       >
-        {[
-          { id: "search", label: "Database & Custom", icon: IconLog },
-          { id: "saved", label: "Saved Meals", icon: IconMealPlans },
-          { id: "text", label: "Text AI", icon: IconSparkles },
-          { id: "favorites", label: "Favorites", icon: IconStar },
-        ].map((tab) => {
+        {LOG_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              id={`log-tab-${tab.id}`}
               type="button"
-              aria-current={isActive ? "page" : undefined}
-              onClick={() => selectTab(tab.id as LogTab)}
               role="tab"
               aria-selected={isActive}
-              className={`active-press flex min-h-11 flex-1 min-w-[120px] items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-semibold transition-colors ${
+              aria-controls={`log-panel-${tab.id}`}
+              onClick={() => selectTab(tab.id)}
+              className={`active-press flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors sm:px-2 sm:text-sm ${
                 isActive
                   ? "bg-[var(--leaf)] text-[var(--on-leaf)] shadow-xs"
                   : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
               }`}
             >
-              <tab.icon aria-hidden="true" className="size-4 shrink-0" />
+              <tab.icon className="size-4 shrink-0" />
               <span>{tab.label}</span>
             </button>
           );
         })}
-      </nav>
+      </div>
 
-      {/* Tab Content Panels */}
-      {activeTab === "search" && (
-        <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7 shadow-xs">
-          <LogFoodForm initialMealType={searchParams.get("meal") ?? undefined} />
-        </div>
-      )}
+      <div
+        role="tabpanel"
+        id="log-panel-search"
+        aria-labelledby="log-tab-search"
+        className={activeTab === "search" ? "rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs sm:p-7" : "hidden"}
+      >
+        <LogFoodForm initialMealType={mealParam} />
+      </div>
 
-      {activeTab === "saved" && (
-        <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7 shadow-xs">
-          <SavedMealsTab />
-        </div>
-      )}
+      <div
+        role="tabpanel"
+        id="log-panel-photo"
+        aria-labelledby="log-tab-photo"
+        className={activeTab === "photo" ? "rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs sm:p-7" : "hidden"}
+      >
+        <PhotoFoodForm initialMealType={mealParam} />
+      </div>
 
-      {activeTab === "text" && (
-        <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7 shadow-xs">
-          <TextFoodForm />
-        </div>
-      )}
+      <div
+        role="tabpanel"
+        id="log-panel-saved"
+        aria-labelledby="log-tab-saved"
+        className={activeTab === "saved" ? "rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs sm:p-7" : "hidden"}
+      >
+        <SavedMealsTab initialMealType={mealParam} />
+      </div>
 
-      {activeTab === "favorites" && (
-        <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7 shadow-xs">
-          <Favorites />
-        </div>
-      )}
+      <div
+        role="tabpanel"
+        id="log-panel-text"
+        aria-labelledby="log-tab-text"
+        className={activeTab === "text" ? "rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs sm:p-7" : "hidden"}
+      >
+        <TextFoodForm initialMealType={mealParam} />
+      </div>
+
+      <div
+        role="tabpanel"
+        id="log-panel-favorites"
+        aria-labelledby="log-tab-favorites"
+        className={activeTab === "favorites" ? "rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs sm:p-7" : "hidden"}
+      >
+        <Favorites initialMealType={mealParam} />
+      </div>
     </div>
   );
 }
@@ -90,7 +120,7 @@ function LogContent() {
 export default function LogPage() {
   return (
     <AppShell eyebrow="Daily Tracking" title="Quick Log">
-      <Suspense fallback={<div className="h-40 rounded-2xl bg-[var(--surface-muted)] animate-pulse" />}>
+      <Suspense fallback={<div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]" />}>
         <LogContent />
       </Suspense>
     </AppShell>

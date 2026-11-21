@@ -1,11 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { IconHistory, IconLog } from "@/components/icons";
 import FoodLogRow from "@/components/food-log-row";
 
-type Log = { id: number; log_date: string; food_name: string; meal_type: string; weight_g: number; calories: number; is_recipe?: boolean };
+type Log = {
+  id: number;
+  log_date: string;
+  food_name: string;
+  meal_type: string;
+  weight_g: number;
+  calories: number;
+  is_recipe?: boolean;
+};
+
+const SLOT_FILTERS = ["all", "breakfast", "lunch", "dinner", "snack"] as const;
+type SlotFilter = (typeof SLOT_FILTERS)[number];
 
 function dateOffset(days: number) {
   const date = new Date();
@@ -20,7 +31,7 @@ function formatPrettyDate(dateStr: string) {
   const yesterday = dateOffset(-1);
   if (dateStr === today) return "Today";
   if (dateStr === yesterday) return "Yesterday";
-  
+
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(date);
@@ -31,29 +42,70 @@ export default function HistoryContent() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
 
   useEffect(() => {
-    fetch(`/api/food/log?from=${dateOffset(-29)}&to=${dateOffset(0)}`)
+    let active = true;
+    fetch(`/api/food/log?from=${dateOffset(-29)}&to=${dateOffset(0)}`, { cache: "no-store" })
       .then(async (response) => {
         const payload = await response.json();
-        setIsLoading(false);
         if (!response.ok) throw new Error(payload.error?.message ?? "Unable to load history.");
-        setLogs(payload.logs);
+        if (active) {
+          setError(null);
+          setLogs(payload.logs ?? []);
+        }
       })
       .catch((reason: unknown) => {
-        setIsLoading(false);
-        setError(reason instanceof Error ? reason.message : "Unable to load history.");
+        if (active) setError(reason instanceof Error ? reason.message : "Unable to load history.");
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
       });
+    return () => {
+      active = false;
+    };
   }, [refreshKey]);
 
-  if (error)
+  const filteredLogs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return logs.filter((log) => {
+      const normalizedSlot = (log.meal_type ?? "").toLowerCase() === "snacks" ? "snack" : (log.meal_type ?? "").toLowerCase();
+      if (slotFilter !== "all" && normalizedSlot !== slotFilter) return false;
+      if (q && !log.food_name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [logs, searchQuery, slotFilter]);
+
+  const grouped = useMemo(
+    () =>
+      filteredLogs.reduce<Record<string, Log[]>>((days, log) => {
+        (days[log.log_date] ??= []).push(log);
+        return days;
+      }, {}),
+    [filteredLogs],
+  );
+
+  if (error) {
     return (
-      <div className="rounded-2xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-5 text-sm font-semibold text-[var(--coral)]" role="alert">
-        {error}
+      <div className="rounded-2xl border border-[var(--coral)]/30 bg-[var(--coral-soft)] p-5 text-sm font-semibold text-[var(--coral)]" role="alert">
+        <p>{error}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setIsLoading(true);
+            setRefreshKey((key) => key + 1);
+          }}
+          className="active-press mt-3 inline-flex min-h-11 items-center rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-4 text-xs font-bold text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
+        >
+          Try again
+        </button>
       </div>
     );
+  }
 
-  if (isLoading)
+  if (isLoading) {
     return (
       <div className="space-y-4 animate-pulse">
         <div className="h-16 rounded-2xl bg-[var(--surface-muted)]" />
@@ -61,21 +113,49 @@ export default function HistoryContent() {
         <div className="h-36 rounded-2xl bg-[var(--surface-muted)]" />
       </div>
     );
-
-  const grouped = logs.reduce<Record<string, Log[]>>((days, log) => {
-    (days[log.log_date] ??= []).push(log);
-    return days;
-  }, {});
+  }
 
   return (
     <div className="space-y-6">
-      {/* Retention Callout Notice */}
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3.5 text-xs text-[var(--ink-muted)]">
         <IconHistory className="size-4 shrink-0 text-[var(--leaf)]" />
         <span>30-day detailed food log archive. Streaks and daily totals are saved permanently.</span>
       </div>
 
-      {Object.keys(grouped).length === 0 ? (
+      {logs.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-1">
+            <label htmlFor="history-search" className="sr-only">Filter logged foods</label>
+            <input
+              id="history-search"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Filter past meals by food name..."
+              className="h-11 w-full rounded-xl border border-[var(--border-control)] bg-[var(--background)] px-3.5 text-sm font-medium outline-none focus:border-[var(--leaf)]"
+            />
+          </div>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by meal slot">
+            {SLOT_FILTERS.map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                aria-pressed={slotFilter === slot}
+                onClick={() => setSlotFilter(slot)}
+                className={`active-press min-h-11 rounded-xl px-3.5 text-xs font-semibold capitalize transition-colors ${
+                  slotFilter === slot
+                    ? "bg-[var(--leaf)] text-[var(--on-leaf)]"
+                    : "border border-[var(--border-control)] bg-[var(--surface-muted)] text-[var(--ink-muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {slot}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {logs.length === 0 ? (
         <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-8 text-center shadow-xs">
           <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--surface-muted)] text-[var(--ink-muted)]">
             <IconHistory className="size-6" />
@@ -86,11 +166,15 @@ export default function HistoryContent() {
           </p>
           <Link
             href="/log"
-            className="active-press mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
+            className="active-press mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
           >
             <IconLog className="size-4" />
             <span>Log a Meal Now</span>
           </Link>
+        </div>
+      ) : Object.keys(grouped).length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] p-6 text-center text-xs text-[var(--ink-muted)]">
+          No logged meals match your current search or meal filter.
         </div>
       ) : (
         Object.entries(grouped).map(([date, dayLogs]) => {
@@ -105,14 +189,19 @@ export default function HistoryContent() {
                   <h2 className="text-base font-bold text-[var(--foreground)]">{formatPrettyDate(date)}</h2>
                   <span className="text-xs text-[var(--ink-muted)]">({date})</span>
                 </div>
-                <span className="tabular-nums rounded-full bg-[var(--leaf-light)] px-3 py-1 text-xs font-extrabold text-[var(--leaf)]">
+                <span className="tabular-nums rounded-full bg-[var(--leaf-light)] px-3 py-1 text-xs font-extrabold text-[var(--leaf-ink)]">
                   {Math.round(dayTotal)} kcal
                 </span>
               </div>
 
-              <div className="mt-4 divide-y divide-[var(--line)]/50">
+              <div className="mt-3 divide-y divide-[var(--line)]/50">
                 {dayLogs.map((log) => (
-                  <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
+                  <FoodLogRow
+                    key={log.id}
+                    log={log}
+                    dateLabel="this day's"
+                    onChanged={() => setRefreshKey((key) => key + 1)}
+                  />
                 ))}
               </div>
             </section>
