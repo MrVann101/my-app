@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { IconCheck, IconRefresh } from "@/components/icons";
+import { IconCheck, IconChevronRight, IconRefresh } from "@/components/icons";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import { defaultMealTypeByHour, MEAL_SLOTS, normalizeMealSlot, type MealSlot } from "@/lib/meal-slot";
 
@@ -170,8 +170,9 @@ export default function Favorites({
             <IconCheck className="size-4 shrink-0" />
             <span>{status}</span>
           </span>
-          <Link href="/dashboard" className="underline underline-offset-2 hover:opacity-80">
-            View Dashboard →
+          <Link href="/dashboard" className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:opacity-80">
+            <span>View Dashboard</span>
+            <IconChevronRight className="size-3.5" />
           </Link>
         </div>
       )}

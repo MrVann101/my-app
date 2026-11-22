@@ -13,6 +13,8 @@ type MonthCursor = {
   nowMonth: number;
 };
 
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
 function formatDateStr(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
@@ -20,7 +22,7 @@ function formatDateStr(date: Date): string {
 export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: number }) {
   const [cursor, setCursor] = useState<MonthCursor | null>(null);
   const [summaries, setSummaries] = useState<Record<string, Summary>>({});
-  const [expandedMobile, setExpandedMobile] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -118,22 +120,46 @@ export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: 
     });
   }
 
+  function toggleExpanded() {
+    setExpanded((wasOpen) => {
+      const nextOpen = !wasOpen;
+      if (!nextOpen) {
+        setCursor((prev) => (prev ? { ...prev, year: prev.nowYear, month: prev.nowMonth } : prev));
+      }
+      return nextOpen;
+    });
+  }
+
   return (
-    <section className="space-y-4 rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs sm:p-6">
-      <div className="space-y-3 border-b border-[var(--line)] pb-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-bold text-[var(--foreground)]">Log Consistency</h2>
-            <p className="text-xs text-[var(--ink-muted)]">Track your streak and calorie-target days</p>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full bg-[var(--leaf-light)] px-3 py-1.5 text-xs font-extrabold text-[var(--leaf-ink)] shadow-2xs">
+    <section className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--leaf-light)] text-[var(--leaf-ink)]">
             <IconFlame className="size-4 text-[var(--leaf)]" />
-            <span className="tabular-nums">{currentStreak} Day Streak</span>
+          </div>
+          <div className="min-w-0">
+            <h2 className="tabular-nums truncate text-sm font-bold text-[var(--foreground)]">
+              {currentStreak} Day Streak
+            </h2>
+            <p className="text-[11px] text-[var(--ink-muted)]">
+              {expanded ? monthName : "This week"}
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] p-1">
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          aria-expanded={expanded}
+          className="active-press inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl border border-[var(--border-control)] bg-[var(--surface-muted)] px-3 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--leaf)]"
+        >
+          <span>{expanded ? "This week" : "Full month"}</span>
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-3">
+          <div className="flex items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] p-0.5">
             <button
               type="button"
               onClick={() => changeMonth(-1)}
@@ -142,7 +168,7 @@ export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: 
             >
               <IconChevronLeft className="size-4" />
             </button>
-            <span className="min-w-[110px] px-2 text-center text-xs font-bold text-[var(--foreground)]">
+            <span className="min-w-[104px] px-1.5 text-center text-xs font-bold text-[var(--foreground)]">
               {monthName}
             </span>
             <button
@@ -156,57 +182,41 @@ export default function StreakCalendar({ currentStreak = 0 }: { currentStreak?: 
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--ink-muted)]" aria-label="Calendar legend">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="grid size-5 place-items-center rounded-md bg-[var(--leaf)] text-[var(--on-leaf)]" aria-hidden="true">
-                <IconFlame className="size-3" />
+          <div className="flex items-center gap-3 text-[11px] text-[var(--ink-muted)]" aria-label="Calendar legend">
+            <span className="inline-flex items-center gap-1">
+              <span className="grid size-4 place-items-center rounded bg-[var(--leaf)] text-[var(--on-leaf)]" aria-hidden="true">
+                <IconFlame className="size-2.5" />
               </span>
               Logged
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="grid size-5 place-items-center rounded-md bg-[var(--leaf)] text-[var(--on-leaf)]" aria-hidden="true">
-                <IconCheck className="size-3 stroke-[3]" />
+            <span className="inline-flex items-center gap-1">
+              <span className="grid size-4 place-items-center rounded bg-[var(--leaf)] text-[var(--on-leaf)]" aria-hidden="true">
+                <IconCheck className="size-2.5 stroke-[3]" />
               </span>
               Target hit
             </span>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Weekday Column Labels */}
-      <div className="grid grid-cols-7 gap-1 border-b border-[var(--line)]/40 pb-2 text-center">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-          <span key={day} className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-muted)]">
+      <div className="grid grid-cols-7 gap-1 border-b border-[var(--line)]/50 pb-1.5 text-center">
+        {WEEKDAY_LABELS.map((day) => (
+          <span key={day} className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink-muted)]">
             {day}
           </span>
         ))}
       </div>
 
-      {/* Mobile Compact 7-day strip (when collapsed) */}
-      {!expandedMobile && (
-        <div className="grid grid-cols-7 gap-1.5 text-center sm:hidden">
-          {currentWeekDays.map((day, idx) => (
-            <CalendarCell key={day.dateStr || `week-${idx}`} day={day} summary={day.dateStr ? summaries[day.dateStr] : undefined} />
-          ))}
-        </div>
-      )}
-
-      {/* Full Month Grid (always visible >= sm, or when expanded on mobile) */}
-      <div className={`${expandedMobile ? "grid" : "hidden sm:grid"} grid-cols-7 gap-1.5 text-center`}>
-        {monthDays.map((day, idx) => (
-          <CalendarCell key={day.dateStr || `blank-${idx}`} day={day} summary={day.dateStr ? summaries[day.dateStr] : undefined} />
+      {/* Compact 7-day strip (default on both mobile & desktop) vs expanded full month */}
+      <div className="grid grid-cols-7 gap-1 text-center">
+        {(expanded ? monthDays : currentWeekDays).map((day, idx) => (
+          <CalendarCell
+            key={day.dateStr || `${expanded ? "blank" : "week"}-${idx}`}
+            day={day}
+            summary={day.dateStr ? summaries[day.dateStr] : undefined}
+          />
         ))}
-      </div>
-
-      <div className="flex justify-center sm:hidden">
-        <button
-          type="button"
-          onClick={() => setExpandedMobile((open) => !open)}
-          aria-expanded={expandedMobile}
-          className="active-press inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--border-control)] bg-[var(--surface-muted)] px-4 text-xs font-bold text-[var(--foreground)] hover:border-[var(--leaf)]"
-        >
-          {expandedMobile ? "Show current week" : "Show full month"}
-        </button>
       </div>
     </section>
   );
@@ -221,8 +231,8 @@ function CalendarCell({
 }) {
   if (!day.isCurrentMonth) {
     return (
-      <div className="flex h-10 items-center justify-center opacity-30">
-        <span className="tabular-nums text-xs text-[var(--ink-muted)]">{day.dayNumber}</span>
+      <div className="flex h-9 items-center justify-center opacity-30">
+        <span className="tabular-nums text-[11px] text-[var(--ink-muted)]">{day.dayNumber}</span>
       </div>
     );
   }
@@ -232,9 +242,9 @@ function CalendarCell({
 
   return (
     <div
-      className={`flex h-10 flex-col items-center justify-center rounded-xl transition-colors ${
+      className={`flex h-9 flex-col items-center justify-center rounded-lg transition-colors ${
         day.isToday
-          ? "ring-2 ring-[var(--leaf)] ring-offset-2 ring-offset-[var(--surface)] font-black"
+          ? "ring-2 ring-[var(--leaf)] ring-offset-1 ring-offset-[var(--surface)] font-black"
           : ""
       } ${
         hasLogged
@@ -247,10 +257,10 @@ function CalendarCell({
           : day.dateStr
       }
     >
-      <span className="tabular-nums text-xs font-bold leading-none">{day.dayNumber}</span>
+      <span className="tabular-nums text-[11px] font-bold leading-none">{day.dayNumber}</span>
       {hasLogged && (
         <span className="mt-0.5">
-          {hitTarget ? <IconCheck className="size-3 stroke-[3]" /> : <IconFlame className="size-3" />}
+          {hitTarget ? <IconCheck className="size-2.5 stroke-[3]" /> : <IconFlame className="size-2.5" />}
         </span>
       )}
     </div>

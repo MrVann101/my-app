@@ -11,5 +11,13 @@ export async function POST() {
     );
   }
 
-  return Response.json({ success: true });
+  return Response.json(
+    { success: true },
+    {
+      headers: {
+        "Clear-Site-Data": '"cache"',
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 }

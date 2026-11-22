@@ -1,7 +1,11 @@
 import { apiErrorResponse, ApiError } from "@/lib/api";
 import { AiFoodError, analyzeFoodImage, validateFoodImage } from "@/lib/ai-food";
 import { logger } from "@/lib/logger";
+import { claimGlobalAiRateLimit } from "@/lib/rate-limit";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+
+const MAX_CONTENT_LENGTH_BYTES = 10 * 1024 * 1024 + 256 * 1024;
 
 export async function POST(request: Request) {
   let claimedDate: string | null = null;
@@ -13,36 +17,68 @@ export async function POST(request: Request) {
     if (!user) throw new ApiError(401, "Authentication is required.", "unauthorized");
     userId = user.id;
 
+    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_CONTENT_LENGTH_BYTES) {
+      throw new ApiError(413, "Image must be 10 MB or smaller.", "invalid_food_image");
+    }
+
     const formData = await request.formData();
     const image = formData.get("image");
     if (!(image instanceof File)) throw new ApiError(400, "Upload an image to analyze.", "image_required");
 
+    // Validate file type, size, and real magic bytes BEFORE claiming daily or global AI rate-limit slots.
+    const validated = await validateFoodImage(image);
+
     const { data: profile, error: profileError } = await supabase.from("profiles").select("timezone").eq("user_id", user.id).maybeSingle();
-    if (profileError) throw new ApiError(400, profileError.message, "profile_fetch_failed");
+    if (profileError) throw new ApiError(400, "Unable to load profile.", "profile_fetch_failed");
     const timezone = profile?.timezone ?? "UTC";
     claimedDate = localDate(timezone);
-    const { data: claimed, error: claimError } = await supabase.rpc("claim_ai_photo_slot", { p_user_id: user.id, p_usage_date: claimedDate });
+
+    const admin = createAdminClient();
+    let { data: claimed, error: claimError } = await admin.rpc("claim_ai_photo_slot", {
+      p_user_id: user.id,
+      p_usage_date: claimedDate,
+    });
+    if (claimError && /not authorized/i.test(claimError.message ?? "")) {
+      const fallback = await supabase.rpc("claim_ai_photo_slot", {
+        p_user_id: user.id,
+        p_usage_date: claimedDate,
+      });
+      claimed = fallback.data;
+      claimError = fallback.error;
+    }
     if (claimError) throw new ApiError(503, "Photo analysis is not configured yet. Apply the AI usage migration first.", "ai_usage_unavailable");
     if (!claimed) throw new ApiError(429, "You have used both AI photo analyses for today. Use search or manual entry instead.", "daily_photo_cap");
     claimedSlot = true;
 
-    const bucketStart = new Date(Math.floor(Date.now() / 60_000) * 60_000).toISOString();
-    const { data: globallyAllowed, error: globalLimitError } = await supabase.rpc("claim_global_ai_rate_limit", { p_bucket_start: bucketStart, p_limit: 60 });
-    if (globalLimitError) throw new ApiError(503, "Photo analysis is not configured yet. Apply the global AI limit migration first.", "ai_rate_limit_unavailable");
+    const globallyAllowed = await claimGlobalAiRateLimit(60, supabase);
     if (!globallyAllowed) {
-      await supabase.rpc("release_ai_photo_slot", { p_user_id: user.id, p_usage_date: claimedDate });
+      const releaseRes = await admin.rpc("release_ai_photo_slot", { p_user_id: user.id, p_usage_date: claimedDate });
+      if (releaseRes.error && /not authorized/i.test(releaseRes.error.message ?? "")) {
+        await supabase.rpc("release_ai_photo_slot", { p_user_id: user.id, p_usage_date: claimedDate });
+      }
       claimedSlot = false;
       throw new ApiError(429, "Photo analysis is busy right now. Try again shortly or use search/manual entry.", "global_ai_rate_limit");
     }
 
-    const validated = await validateFoodImage(image);
     const analysis = await analyzeFoodImage(validated);
     return Response.json(analysis);
   } catch (error) {
-    if (claimedSlot && claimedDate && userId) {
+    const shouldRefundSlot =
+      claimedSlot &&
+      claimedDate &&
+      userId &&
+      error instanceof AiFoodError &&
+      error.retryable;
+
+    if (shouldRefundSlot) {
       try {
-        const supabase = await createClient();
-        await supabase.rpc("release_ai_photo_slot", { p_user_id: userId, p_usage_date: claimedDate });
+        const admin = createAdminClient();
+        const releaseRes = await admin.rpc("release_ai_photo_slot", { p_user_id: userId, p_usage_date: claimedDate });
+        if (releaseRes?.error && /not authorized/i.test(releaseRes.error.message ?? "")) {
+          const supabase = await createClient();
+          await supabase.rpc("release_ai_photo_slot", { p_user_id: userId, p_usage_date: claimedDate });
+        }
       } catch {
         // The original analysis error is more useful to the client than release cleanup failure.
       }
@@ -73,7 +109,14 @@ function errorMessage(error: unknown): string {
 }
 
 function localDate(timezone: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  let safeTz = "UTC";
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format();
+    safeTz = timezone;
+  } catch {
+    safeTz = "UTC";
+  }
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: safeTz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
 }

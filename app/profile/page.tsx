@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import { createClient } from "@/lib/supabase/client";
+import { isInternalAuthEmail } from "@/lib/username-auth";
 import {
   IconTrendingUp,
   IconHistory,
@@ -23,6 +24,7 @@ type ProfileOverview = {
   email: string;
   targetCalories: number | null;
   goal: string | null;
+  isAdmin: boolean;
 };
 
 interface NavItemProps {
@@ -155,7 +157,8 @@ export default function ProfilePage() {
           payload.profile !== null
             ? payload.profile
             : null;
-        const email = user?.email ?? "";
+        const rawEmail = user?.email ?? "";
+        const email = isInternalAuthEmail(rawEmail) ? "" : rawEmail;
         const name =
           typeof user?.user_metadata.username === "string"
             ? user.user_metadata.username
@@ -168,7 +171,12 @@ export default function ProfilePage() {
             : null;
         const goal =
           profile && "goal" in profile && typeof profile.goal === "string" ? profile.goal : null;
-        if (active) setProfileOverview({ name, email, targetCalories: target, goal });
+        const isAdmin =
+          typeof payload === "object" &&
+          payload !== null &&
+          "isAdmin" in payload &&
+          payload.isAdmin === true;
+        if (active) setProfileOverview({ name, email, targetCalories: target, goal, isAdmin });
       } catch (reason) {
         if (active) setProfileError(reason instanceof Error ? reason.message : "Unable to load your profile details.");
       }
@@ -199,7 +207,28 @@ export default function ProfilePage() {
         throw new Error(message);
       }
       try {
-        localStorage.removeItem("bitewise_user_avatar");
+        const keysToClear: string[] = [];
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const key = localStorage.key(i);
+          if (
+            key &&
+            (key === "bitewise_user_avatar" ||
+              key === "bitewise_notifications_state_v1" ||
+              key === "bitewise_submitted_feedback_ids_v1" ||
+              key.startsWith("bitewise_grocery_") ||
+              key.startsWith("bitewise_plan_cover_"))
+          ) {
+            keysToClear.push(key);
+          }
+        }
+        for (const key of keysToClear) {
+          localStorage.removeItem(key);
+        }
+        sessionStorage.removeItem("bitewise_is_admin");
+        if (typeof caches !== "undefined") {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((name) => caches.delete(name)));
+        }
       } catch {}
       window.dispatchEvent(new Event(profileImageEvent));
       router.replace("/login");
@@ -267,14 +296,26 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-bold text-[var(--foreground)]">{profileOverview?.name ?? "Your profile"}</h2>
                   <span className="rounded-full border border-[var(--leaf)]/30 bg-[var(--leaf-soft)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--leaf-ink)]">
                     Active
                   </span>
+                  {profileOverview?.isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="rounded-full bg-[var(--leaf)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--on-leaf)] transition-opacity hover:opacity-90"
+                    >
+                      Admin
+                    </Link>
+                  )}
                 </div>
                 <p className="text-xs text-[var(--ink-muted)]">
-                  {profileOverview?.email || "Signed-in account"}
+                  {profileOverview?.email
+                    ? profileOverview.email
+                    : profileOverview?.name
+                      ? `@${profileOverview.name}`
+                      : "Signed-in account"}
                   {" · "}
                   {profileOverview?.targetCalories
                     ? `${Math.round(profileOverview.targetCalories).toLocaleString()} kcal/day target`
@@ -377,14 +418,30 @@ export default function ProfilePage() {
             <NavCard
               href="/profile/account"
               icon={IconShieldCheck}
-              title="Account & Data"
-              description="Export nutrition data or manage account."
+              title="Account & Security"
+              description="Change password, export CSV data, policies, or delete account."
             />
+            {profileOverview?.isAdmin && (
+              <NavCard
+                href="/admin"
+                icon={IconShieldCheck}
+                title="Admin Console"
+                description="Review user suggestions, ratings, app stats, and public plans."
+                badge="Admin"
+              />
+            )}
           </div>
         </div>
 
         <p className="px-4 pt-2 text-center text-xs leading-relaxed text-[var(--ink-muted)]">
-          Bitewise provides estimates for nutritional tracking purposes and is not medical or professional nutrition advice.
+          Bitewise provides estimates for nutritional tracking purposes and is not medical or professional nutrition advice.{" "}
+          <Link className="font-semibold text-[var(--leaf)] hover:underline" href="/privacy">
+            Privacy Policy
+          </Link>
+          {" · "}
+          <Link className="font-semibold text-[var(--leaf)] hover:underline" href="/terms">
+            Terms &amp; Disclaimer
+          </Link>
         </p>
 
         <div className="border-t border-[var(--line)] pt-5">

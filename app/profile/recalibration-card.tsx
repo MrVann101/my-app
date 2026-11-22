@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { IconChevronRight } from "@/components/icons";
 
 type Recommendation = {
   recommendedCalories: number;
@@ -76,10 +77,11 @@ export default function RecalibrationCard() {
           {data?.checkins ?? 0} of {data?.requiredCheckins ?? 3} weigh-ins recorded — log weight check-ins to unlock adaptive calorie recalibration.
         </p>
         <Link
-          className="active-press mt-4 inline-flex min-h-11 items-center rounded-xl border border-[var(--border-control)] bg-[var(--surface-muted)] px-4 text-sm font-semibold text-[var(--leaf)] hover:border-[var(--leaf)]"
+          className="active-press mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[var(--border-control)] bg-[var(--surface-muted)] px-4 text-sm font-semibold text-[var(--leaf)] hover:border-[var(--leaf)]"
           href="/profile/progress#weight-checkin"
         >
-          Log a weigh-in →
+          <span>Log a weigh-in</span>
+          <IconChevronRight className="size-4" />
         </Link>
       </section>
     );

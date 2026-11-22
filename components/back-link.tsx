@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { IconArrowLeft } from "./icons";
+import { IconChevronLeft } from "./icons";
 
 export default function BackLink({
   href = "/profile",
@@ -9,12 +9,12 @@ export default function BackLink({
   label?: string;
 }) {
   return (
-    <div className="mb-6">
+    <div>
       <Link
         href={href}
-        className="active-press inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3.5 py-2 text-xs font-bold text-[var(--foreground)] shadow-xs transition-colors hover:border-[var(--leaf)] hover:text-[var(--leaf)]"
+        className="active-press inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3.5 py-2 text-xs font-bold text-[var(--foreground)] shadow-xs transition-colors hover:border-[var(--leaf)] hover:text-[var(--leaf)]"
       >
-        <IconArrowLeft className="size-4" />
+        <IconChevronLeft className="size-4" />
         <span>{label}</span>
       </Link>
     </div>

@@ -1,3 +1,4 @@
+import { resolveIsAdmin } from "@/lib/admin-auth";
 import { apiErrorResponse, ApiError } from "@/lib/api";
 import { calculateTargets, normalizeOnboardingInput } from "@/lib/calculations";
 import { createClient } from "@/lib/supabase/server";
@@ -47,7 +48,11 @@ export async function GET() {
 
     const { data, error } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
     if (error) throw new ApiError(400, error.message, "profile_fetch_failed");
-    return Response.json({ profile: data });
+    const isAdmin = resolveIsAdmin({
+      user,
+      profileRow: (data as Record<string, unknown> | null) ?? null,
+    });
+    return Response.json({ profile: data, isAdmin });
   } catch (error) {
     return apiErrorResponse(error);
   }

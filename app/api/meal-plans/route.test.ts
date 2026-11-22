@@ -9,11 +9,14 @@ const mockedCreateClient = vi.mocked(createClient);
 describe("saved recipe route", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("returns only private plans for My Plans", async () => {
-    const privatePlan = { id: 15, name: "Private chicken bowl", visibility: "private" };
+  it("returns all meal plans owned by the authenticated user for My Plans", async () => {
+    const ownedPlans = [
+      { id: 15, name: "Private chicken bowl", visibility: "private" },
+      { id: 16, name: "Shared salmon plate", visibility: "public" },
+    ];
     const query = { eq: vi.fn(), order: vi.fn() };
     query.eq.mockImplementation(() => query);
-    query.order.mockResolvedValue({ data: [privatePlan], error: null });
+    query.order.mockResolvedValue({ data: ownedPlans, error: null });
     mockedCreateClient.mockResolvedValue({
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
       from: vi.fn(() => ({ select: vi.fn(() => query) })),
@@ -22,9 +25,9 @@ describe("saved recipe route", () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
-    expect(query.eq).toHaveBeenNthCalledWith(1, "user_id", "user-1");
-    expect(query.eq).toHaveBeenNthCalledWith(2, "visibility", "private");
-    expect((await response.json()).plans).toEqual([privatePlan]);
+    expect(query.eq).toHaveBeenCalledTimes(1);
+    expect(query.eq).toHaveBeenCalledWith("user_id", "user-1");
+    expect((await response.json()).plans).toEqual(ownedPlans);
   });
 
   it("saves a public recipe without applying a meal-plan calorie minimum", async () => {

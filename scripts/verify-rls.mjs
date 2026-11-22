@@ -54,10 +54,28 @@ try {
     if (error) throw error;
   }
 
-  const badge = await first.client.from("badges").insert({ user_id: first.id, badge_key: "rls_verification" }).select("id").single();
-  if (badge.error) throw badge.error;
-  const crossUserBadge = await second.client.from("badges").insert({ user_id: first.id, badge_key: "cross_user_verification" });
+  const selfAdminEscalate = await first.client.from("profiles").update({ is_admin: true }).eq("user_id", first.id);
+  assert(selfAdminEscalate.error, "User A was able to self-escalate profiles.is_admin via PostgREST.");
+
+  const directBadgeInsert = await first.client.from("badges").insert({ user_id: first.id, badge_key: "first_log" });
+  assert(directBadgeInsert.error, "User A was able to directly forge a badge via PostgREST.");
+  const crossUserBadge = await second.client.from("badges").insert({ user_id: first.id, badge_key: "first_log" });
   assert(crossUserBadge.error, "User B inserted a badge for User A.");
+
+  const directQuotaReset = await first.client.from("daily_ai_usage").upsert({ user_id: first.id, usage_date: "2026-09-06", photo_count: 0, text_count: 0 });
+  assert(directQuotaReset.error, "User A was able to write daily_ai_usage directly via PostgREST.");
+
+  const directFeedbackForge = await first.client.from("app_feedback").insert({
+    user_id: first.id,
+    username_snapshot: "spoofed",
+    overall_rating: 5,
+    focus_area: "other",
+    logging_ease: "very_easy",
+    message: "Forged admin reply test",
+    status: "shipped",
+    admin_note: "Spoofed note",
+  });
+  assert(directFeedbackForge.error, "User A was able to insert directly into app_feedback via PostgREST.");
 
   const privatePlan = await first.client.from("meal_plans").insert({ user_id: first.id, name: "Private verification plan", visibility: "private" }).select("id").single();
   if (privatePlan.error) throw privatePlan.error;
@@ -92,6 +110,37 @@ try {
     days: [],
   });
   assert(crossUserWeeklyPlan.error, "User B inserted a weekly plan for User A.");
+
+  const weeklyMeal = await first.client.from("weekly_plan_meals").insert({
+    weekly_plan_id: weeklyPlan.data.id,
+    day_of_week: 1,
+    day_name: "Monday",
+    slot_index: 0,
+    meal_slot: "Breakfast",
+    title: "Oatmeal Bowl",
+    description: "Warm oats with berries.",
+    servings: 2,
+    calories_per_serving: 250,
+    protein_g_per_serving: 10,
+    carbs_g_per_serving: 40,
+    fat_g_per_serving: 5,
+    total_calories: 0,
+  }).select("total_calories").single();
+  if (weeklyMeal.error) throw weeklyMeal.error;
+  assert(Number(weeklyMeal.data.total_calories) === 500, "Computed weekly-plan-meal calories were not enforced.");
+  const hiddenWeeklyMeal = await second.client.from("weekly_plan_meals").select("id").eq("weekly_plan_id", weeklyPlan.data.id);
+  if (hiddenWeeklyMeal.error) throw hiddenWeeklyMeal.error;
+  assert(hiddenWeeklyMeal.data.length === 0, "User B could read User A's weekly plan meals.");
+  const crossUserWeeklyMeal = await second.client.from("weekly_plan_meals").insert({
+    weekly_plan_id: weeklyPlan.data.id,
+    day_of_week: 1,
+    day_name: "Monday",
+    slot_index: 1,
+    meal_slot: "Lunch",
+    title: "Cross-user meal",
+    calories_per_serving: 400,
+  });
+  assert(crossUserWeeklyMeal.error, "User B inserted a weekly plan meal into User A's plan.");
 
   const customFood = await first.client.from("custom_foods").insert({ user_id: first.id, food_name: "Private sauce", default_weight_g: 20, calories_per_g: 2, label_calories: 40, label_weight_g: 20 }).select("id").single();
   if (customFood.error) throw customFood.error;

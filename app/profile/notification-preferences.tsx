@@ -111,7 +111,7 @@ export default function NotificationPreferences() {
           }}
           type="checkbox"
         />
-        <span>Email reminders</span>
+        <span>Enable meal reminders</span>
       </label>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">

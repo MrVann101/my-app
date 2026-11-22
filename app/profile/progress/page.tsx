@@ -5,9 +5,9 @@ import WeeklySummary from "./weekly-summary";
 
 export default function ProgressPage() {
   return (
-    <AppShell eyebrow="Your nutrition" title="Analytics & Progress">
+    <AppShell eyebrow="Analytics" title="Progress">
       <div className="space-y-6">
-        <BackLink />
+        <BackLink href="/dashboard" label="Back" />
         <WeeklySummary />
         <ProgressContent />
       </div>

@@ -1,22 +1,38 @@
-import Link from "next/link";
-import { IconBitewiseLogo } from "@/components/icons";
+import AuthHeader from "@/components/auth-header";
+import {
+  AmbientAuthWash,
+  AuthCardMotion,
+  AuthStageProvider,
+  InteractiveMascot,
+} from "@/components/auth-mascot-stage";
 import LoginForm from "./login-form";
 
 export default function LoginPage() {
   return (
-    <main className="min-h-screen bg-[var(--background)] px-5 py-8 sm:px-8 sm:py-12">
-      <div className="mx-auto max-w-md">
-        <Link className="inline-flex min-h-11 items-center gap-3 text-lg font-semibold tracking-tight" href="/">
-          <IconBitewiseLogo className="size-10 shadow-xs" />
-          bitewise
-        </Link>
-        <div className="mt-14 rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-sm sm:p-8">
-          <p className="text-sm font-medium text-[var(--leaf)]">Welcome back</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Log in to Bitewise</h1>
-          <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">Your daily view is waiting.</p>
-          <LoginForm />
-        </div>
+    <AuthStageProvider>
+      <div className="relative min-h-[100dvh] overflow-x-clip bg-[var(--background)]">
+        <AmbientAuthWash />
+        <AuthHeader maxWidthClass="max-w-md" />
+
+        <main className="relative flex min-h-[calc(100dvh-4rem)] flex-col justify-center px-4 pt-[5.75rem] pb-10 sm:px-8 sm:pt-[6.5rem] sm:pb-14 lg:py-10">
+          <div className="relative mx-auto w-full max-w-md">
+            <InteractiveMascot variant="login" />
+
+            <AuthCardMotion>
+              <div className="pr-24 sm:pr-28 lg:pr-0">
+                <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
+                  Welcome back
+                </h1>
+                <p className="mt-1.5 text-sm text-[var(--ink-muted)]">
+                  Log in with your Bitewise username and password.
+                </p>
+              </div>
+
+              <LoginForm />
+            </AuthCardMotion>
+          </div>
+        </main>
       </div>
-    </main>
+    </AuthStageProvider>
   );
 }

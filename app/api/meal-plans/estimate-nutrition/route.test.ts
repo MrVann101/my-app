@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+import { resetRateLimitMemoryForTests } from "@/lib/rate-limit";
 import { estimateMealNutrition } from "@/lib/recipes";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 vi.mock("@/lib/recipes", async (importOriginal) => {
@@ -8,8 +10,10 @@ vi.mock("@/lib/recipes", async (importOriginal) => {
   return { ...actual, estimateMealNutrition: vi.fn() };
 });
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 
 const mockedCreateClient = vi.mocked(createClient);
+const mockedCreateAdminClient = vi.mocked(createAdminClient);
 const mockedEstimateMealNutrition = vi.mocked(estimateMealNutrition);
 const nutrition = { calories: 425, proteinG: 28, carbsG: 45, fatG: 12 };
 const validInput = {
@@ -23,8 +27,11 @@ const validInput = {
 describe("meal plan nutrition estimate route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRateLimitMemoryForTests();
     mockedCreateClient.mockResolvedValue({
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
+    } as never);
+    mockedCreateAdminClient.mockReturnValue({
       rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     } as never);
   });
@@ -58,9 +65,10 @@ describe("meal plan nutrition estimate route", () => {
   });
 
   it("rejects estimates when the shared AI rate limit is reached", async () => {
-    mockedCreateClient.mockResolvedValue({
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
-      rpc: vi.fn().mockResolvedValue({ data: false, error: null }),
+    mockedCreateAdminClient.mockReturnValue({
+      rpc: vi.fn((fnName: string) =>
+        Promise.resolve({ data: fnName === "claim_rate_limit", error: null }),
+      ),
     } as never);
 
     const response = await POST(new Request("http://localhost/api/meal-plans/estimate-nutrition", {

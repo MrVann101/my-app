@@ -6,7 +6,7 @@ import { computeNutrients } from "@/lib/food";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import { defaultMealTypeByHour, MEAL_SLOTS, normalizeMealSlot, type MealSlot } from "@/lib/meal-slot";
 import type { AiTextEstimate } from "@/lib/types";
-import { IconCheck, IconX } from "@/components/icons";
+import { IconCheck, IconChevronRight, IconX } from "@/components/icons";
 
 type EditableTextItem = AiTextEstimate & {
   id: string;
@@ -179,8 +179,9 @@ export default function TextFoodForm({ initialMealType }: { initialMealType?: st
             <IconCheck className="size-4 shrink-0" />
             <span>{status}</span>
           </span>
-          <Link href="/dashboard" className="underline underline-offset-2 hover:opacity-80">
-            View Dashboard →
+          <Link href="/dashboard" className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:opacity-80">
+            <span>View Dashboard</span>
+            <IconChevronRight className="size-3.5" />
           </Link>
         </div>
       )}

@@ -4,7 +4,7 @@ import RecalibrationCard from "../recalibration-card";
 
 export default function RecalibrationPage() {
   return (
-    <AppShell eyebrow="Settings" title="Adaptive Weekly Recalibration">
+    <AppShell eyebrow="Settings" title="Adaptive Recalibration">
       <div className="space-y-6">
         <BackLink />
         <RecalibrationCard />

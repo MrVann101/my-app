@@ -14,6 +14,7 @@ export const mealPlanInputSchema = z.object({
   visibility: z.enum(["private", "public"]).default("private"),
   goal: z.enum(["lose", "maintain", "gain"]).nullable().default(null),
   dietType: z.string().trim().max(80).nullable().default(null),
+  forkedFrom: z.number().int().positive().optional(),
   items: z.array(itemSchema).min(1).max(50).optional(),
   recipe: generatedRecipeSchema.optional(),
 }).refine((body) => body.recipe || (body.name && body.items?.length), {

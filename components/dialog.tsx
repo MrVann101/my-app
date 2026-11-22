@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 
 type DialogProps = {
   open: boolean;
@@ -12,6 +13,8 @@ type DialogProps = {
   maxWidthClass?: string;
   closeOnScrim?: boolean;
   alignTop?: boolean;
+  instant?: boolean;
+  overflowHidden?: boolean;
   children: ReactNode;
 };
 
@@ -28,6 +31,8 @@ export default function Dialog({
   maxWidthClass = "max-w-md",
   closeOnScrim = true,
   alignTop = false,
+  instant = false,
+  overflowHidden = false,
   children,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -94,12 +99,12 @@ export default function Dialog({
     };
   }, [open, initialFocusRef]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       className={`fixed inset-0 z-50 flex justify-center bg-[var(--scrim)] p-4 backdrop-blur-xs ${
-        alignTop ? "items-start pt-12 sm:pt-16" : "items-center"
+        alignTop ? "items-start pt-10 sm:pt-16" : "items-center"
       }`}
       onMouseDown={(event) => {
         if (closeOnScrim && event.target === event.currentTarget) {
@@ -114,10 +119,13 @@ export default function Dialog({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className={`dialog-enter w-full ${maxWidthClass} max-h-[85dvh] overflow-y-auto rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-2xl outline-none`}
+        className={`${instant ? "" : "dialog-enter "}w-full ${maxWidthClass} max-h-[85dvh] ${
+          overflowHidden ? "flex flex-col overflow-hidden" : "overflow-y-auto"
+        } rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-2xl outline-none sm:p-6`}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

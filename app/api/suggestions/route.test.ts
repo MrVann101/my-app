@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
+import { resetRateLimitMemoryForTests } from "@/lib/rate-limit";
 import { getMealSuggestions } from "@/lib/suggestions";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/suggestions", () => ({ getMealSuggestions: vi.fn() }));
 
 const mockedCreateClient = vi.mocked(createClient);
+const mockedCreateAdminClient = vi.mocked(createAdminClient);
 const mockedGetMealSuggestions = vi.mocked(getMealSuggestions);
 
 function makeQuery(result: { data: unknown; error: null }) {
@@ -21,7 +25,11 @@ function makeQuery(result: { data: unknown; error: null }) {
 describe("suggestions route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRateLimitMemoryForTests();
     mockedGetMealSuggestions.mockResolvedValue({ suggestions: [], providerUsed: "fallback" });
+    mockedCreateAdminClient.mockReturnValue({
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
+    } as never);
   });
 
   it("includes exercise calories in the remaining suggestion budget", async () => {

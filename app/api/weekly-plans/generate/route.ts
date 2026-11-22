@@ -1,4 +1,5 @@
 import { apiErrorResponse, ApiError, parseJson } from "@/lib/api";
+import { claimGlobalAiRateLimit, claimRateLimit } from "@/lib/rate-limit";
 import {
   generateWeeklySchedule,
   regenerateWeeklyDay,
@@ -12,23 +13,24 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ApiError(401, "Authentication is required.", "unauthorized");
+
     const body = await parseJson(request, weeklyPlanGenerationRequestSchema);
 
-    const bucketStart = new Date(Math.floor(Date.now() / 60_000) * 60_000).toISOString();
-    const { data: globallyAllowed, error: limitError } = await supabase.rpc("claim_global_ai_rate_limit", {
-      p_bucket_start: bucketStart,
-      p_limit: 60,
+    await claimRateLimit({
+      key: `ai_weekly_plan:${user.id}`,
+      windowSeconds: 3600,
+      limit: 15,
+      message: "You have generated several weekly plans this hour. Please try again shortly.",
     });
-    if (limitError) {
-      throw new ApiError(503, "Weekly plan generation is not configured yet. Apply the global AI limit migration first.", "ai_rate_limit_unavailable");
-    }
+
+    const globallyAllowed = await claimGlobalAiRateLimit(60, supabase);
     if (!globallyAllowed) {
       throw new ApiError(429, "Weekly plan generation is busy right now. Try again shortly.", "global_ai_rate_limit");
     }
 
     try {
       if (body.action === "week") {
-        return Response.json({ days: await generateWeeklySchedule(body.preferences) });
+        return Response.json({ days: await generateWeeklySchedule(body.preferences, body.excludeTitles) });
       }
       if (body.action === "day") {
         return Response.json({ day: await regenerateWeeklyDay(body.preferences, body.day) });

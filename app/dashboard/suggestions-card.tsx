@@ -1,30 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { IconSparkles } from "@/components/icons";
+import { IconChevronRight, IconSparkles } from "@/components/icons";
 
 export default function SuggestionsCard() {
   return (
-    <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs transition-shadow hover:shadow-sm">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-3">
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--leaf-light)] text-[var(--leaf-ink)]">
-            <IconSparkles className="size-5" />
+    <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)]/60 p-3.5 transition-colors hover:border-[var(--leaf)]/50">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--leaf-light)] text-[var(--leaf-ink)]">
+            <IconSparkles className="size-4" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-[var(--foreground)]">Need a Meal Idea?</h2>
-            <p className="text-xs text-[var(--ink-muted)]">
-              Get personalized AI meal suggestions matched to your remaining calories.
-            </p>
+          <div className="min-w-0">
+            <h2 className="truncate text-xs font-bold text-[var(--foreground)]">Need a meal idea?</h2>
+            <p className="truncate text-[11px] text-[var(--ink-muted)]">Matched to remaining kcal</p>
           </div>
         </div>
 
         <Link
           href="/suggestions"
-          className="active-press inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--leaf)] px-4 py-2.5 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
+          className="active-press inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--leaf-ink)] transition-colors hover:border-[var(--leaf)]"
         >
-          <IconSparkles className="size-4" />
-          <span>Explore AI Suggestions</span>
+          <span>Explore</span>
+          <IconChevronRight className="size-3.5" />
         </Link>
       </div>
     </section>

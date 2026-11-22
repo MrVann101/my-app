@@ -1,24 +1,50 @@
+import { isAuthorizedCronRequest, runCronJob } from "@/lib/cron";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runCronJob } from "@/lib/cron";
+
+const PAGE_SIZE = 200;
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) return new Response("Unauthorized", { status: 401 });
+  if (!isAuthorizedCronRequest(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
   try {
     const result = await runCronJob("purge_detailed_logs", async () => {
       const admin = createAdminClient();
-      const { data: profiles, error } = await admin.from("profiles").select("user_id, timezone");
-      if (error) throw error;
+      let processed = 0;
       let deleted = 0;
       let failed = 0;
-      for (const profile of profiles ?? []) {
-        const cutoff = dateOffset(previousLocalDate(profile.timezone ?? "UTC"), -30);
-        const result = await admin.from("food_logs").delete().eq("user_id", profile.user_id).lt("log_date", cutoff).select("id");
-        if (result.error) failed += 1;
-        else deleted += result.data?.length ?? 0;
+      let offset = 0;
+
+      while (true) {
+        const { data: profiles, error } = await admin
+          .from("profiles")
+          .select("user_id, timezone")
+          .order("user_id", { ascending: true })
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (error) throw error;
+        const batch = profiles ?? [];
+        if (batch.length === 0) break;
+
+        for (const profile of batch) {
+          const cutoff = dateOffset(previousLocalDate(profile.timezone ?? "UTC"), -30);
+          const deleteRes = await admin
+            .from("food_logs")
+            .delete()
+            .eq("user_id", profile.user_id)
+            .lt("log_date", cutoff)
+            .select("id");
+          processed += 1;
+          if (deleteRes.error) failed += 1;
+          else deleted += deleteRes.data?.length ?? 0;
+        }
+
+        if (batch.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
       }
-      return { processed: profiles?.length ?? 0, deleted, failed };
+
+      return { processed, deleted, failed };
     });
     return Response.json(result);
   } catch {
@@ -27,7 +53,21 @@ export async function GET(request: Request) {
 }
 
 function previousLocalDate(timezone: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const now = new Date();
+  let safeTimezone = "UTC";
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(now);
+    safeTimezone = timezone;
+  } catch {
+    safeTimezone = "UTC";
+  }
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: safeTimezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   const date = new Date(`${values.year}-${values.month}-${values.day}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() - 1);

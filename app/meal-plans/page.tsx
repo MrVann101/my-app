@@ -29,6 +29,7 @@ function MealPlansContent() {
 
   const [postNotice, setPostNotice] = useState<{ message: string; isError: boolean } | null>(null);
   const [refreshMyPlansKey, setRefreshMyPlansKey] = useState(0);
+  const [refreshPublicPlansKey, setRefreshPublicPlansKey] = useState(0);
 
   function selectTab(tab: MealTab) {
     const params = new URLSearchParams(searchParams.toString());
@@ -80,15 +81,21 @@ function MealPlansContent() {
       )}
 
       <div role="tabpanel" id="meal-panel-my-plans" aria-labelledby="meal-tab-my-plans" className={activeTab === "my-plans" ? "" : "hidden"}>
-        <MyPlans key={refreshMyPlansKey} />
+        <MyPlans
+          key={refreshMyPlansKey}
+          onPhotoChanged={() => setRefreshPublicPlansKey((k) => k + 1)}
+          onExplorePublic={() => selectTab("public-plans")}
+          onCookIngredients={() => selectTab("find-meals")}
+        />
       </div>
 
       <div role="tabpanel" id="meal-panel-find-meals" aria-labelledby="meal-tab-find-meals" className={activeTab === "find-meals" ? "" : "hidden"}>
-        <RecipeFinder />
+        <RecipeFinder onSaved={() => setRefreshMyPlansKey((k) => k + 1)} />
       </div>
 
       <div role="tabpanel" id="meal-panel-public-plans" aria-labelledby="meal-tab-public-plans" className={activeTab === "public-plans" ? "" : "hidden"}>
         <PublicPlans
+          key={refreshPublicPlansKey}
           onSaved={() => setRefreshMyPlansKey((k) => k + 1)}
           onViewMyPlans={() => selectTab("my-plans")}
         />
@@ -96,16 +103,11 @@ function MealPlansContent() {
 
       <div role="tabpanel" id="meal-panel-manual-plan" aria-labelledby="meal-tab-manual-plan" className={activeTab === "manual-plan" ? "" : "hidden"}>
         <section className="mx-auto w-full max-w-4xl rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm sm:p-7">
-          <div className="mb-5 border-b border-[var(--line)] pb-4">
-            <h2 className="text-base font-bold text-[var(--foreground)]">Build Meal Plan</h2>
-            <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-              Add ingredients and steps for automatic nutrition estimation.
-            </p>
-          </div>
           <PlanBuilder
             onPlanCreated={(visibility, message, isError) => {
               setPostNotice({ message, isError });
               setRefreshMyPlansKey((k) => k + 1);
+              setRefreshPublicPlansKey((k) => k + 1);
               selectTab(visibility === "public" ? "public-plans" : "my-plans");
             }}
           />
@@ -117,7 +119,7 @@ function MealPlansContent() {
 
 export default function MealPlansPage() {
   return (
-    <AppShell eyebrow="Cook with what you have" title="Meal Plans">
+    <AppShell eyebrow="Your nutrition" title="Meal Plans">
       <Suspense fallback={<div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]" />}>
         <MealPlansContent />
       </Suspense>

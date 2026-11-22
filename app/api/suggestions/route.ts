@@ -1,16 +1,34 @@
+import { z } from "zod";
 import { apiErrorResponse, ApiError } from "@/lib/api";
 import { dateInTimezone } from "@/lib/date";
+import { claimGlobalAiRateLimit, claimRateLimit } from "@/lib/rate-limit";
 import { getMealSuggestions } from "@/lib/suggestions";
 import { createClient } from "@/lib/supabase/server";
+
+const excludeTitleSchema = z.string().trim().min(1).max(120);
 
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ApiError(401, "Authentication is required.", "unauthorized");
+
+    await claimRateLimit({
+      key: `ai_suggestions:${user.id}`,
+      windowSeconds: 3600,
+      limit: 25,
+      message: "You have refreshed meal ideas several times this hour. Please wait a bit before trying again.",
+    });
+
     const { data: profile, error: profileError } = await supabase.from("profiles").select("timezone, target_calories, target_protein_g, target_carbs_g, target_fat_g").eq("user_id", user.id).maybeSingle();
-    if (profileError) throw new ApiError(400, profileError.message, "profile_fetch_failed");
+    if (profileError) throw new ApiError(400, "Unable to load profile.", "profile_fetch_failed");
     if (!profile) return Response.json({ suggestions: [], providerUsed: "fallback", needsOnboarding: true });
+
+    const globallyAllowed = await claimGlobalAiRateLimit(60, supabase);
+    if (!globallyAllowed) {
+      throw new ApiError(429, "Meal ideas are busy right now. Please try again shortly.", "global_ai_rate_limit");
+    }
+
     const timezone = requestedTimezone(request, profile.timezone ?? "UTC");
     const date = dateInTimezone(new Date(), timezone);
     const [{ data: logs, error: logsError }, { data: exercises, error: exerciseError }] = await Promise.all([
@@ -21,10 +39,20 @@ export async function GET(request: Request) {
     const sum = (key: "calories" | "protein_g" | "carbs_g" | "fat_g") => (logs ?? []).reduce((total, log) => total + Number(log[key] ?? 0), 0);
     const caloriesBurned = (exercises ?? []).reduce((total, exercise) => total + Number(exercise.calories_burned ?? 0), 0);
     const calories = Number(profile.target_calories ?? 0) - sum("calories") + caloriesBurned;
+
     const params = new URL(request.url).searchParams;
-    const excludedTitles = params.getAll("exclude").slice(0, 12);
+    const excludedTitles = params
+      .getAll("exclude")
+      .slice(0, 12)
+      .map((item) => excludeTitleSchema.safeParse(item))
+      .filter((parsed): parsed is { success: true; data: string } => parsed.success)
+      .map((parsed) => parsed.data);
+
     const requestedGeneration = Number(params.get("generation") ?? 0);
-    const generation = Number.isInteger(requestedGeneration) && requestedGeneration > 0 ? requestedGeneration : 0;
+    const generation = Number.isInteger(requestedGeneration) && requestedGeneration > 0 && requestedGeneration <= 100
+      ? requestedGeneration
+      : 0;
+
     const result = await getMealSuggestions(
       { calories, proteinG: Number(profile.target_protein_g ?? 0) - sum("protein_g"), carbsG: Number(profile.target_carbs_g ?? 0) - sum("carbs_g"), fatG: Number(profile.target_fat_g ?? 0) - sum("fat_g") },
       excludedTitles,

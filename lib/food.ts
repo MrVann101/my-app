@@ -2,13 +2,13 @@ import { z } from "zod";
 import type { AiTextEstimate, ComputedNutrients, NutrientRate } from "@/lib/types";
 
 export const nutrientRateSchema = z.object({
-  caloriesPerG: z.number().finite().nonnegative(),
-  proteinPerG: z.number().finite().nonnegative(),
-  carbsPerG: z.number().finite().nonnegative(),
-  fatPerG: z.number().finite().nonnegative(),
-  fiberPerG: z.number().finite().nonnegative(),
-  sodiumPerG: z.number().finite().nonnegative(),
-  sugarPerG: z.number().finite().nonnegative(),
+  caloriesPerG: z.number().finite().nonnegative().max(10),
+  proteinPerG: z.number().finite().nonnegative().max(1.2),
+  carbsPerG: z.number().finite().nonnegative().max(1.2),
+  fatPerG: z.number().finite().nonnegative().max(1.2),
+  fiberPerG: z.number().finite().nonnegative().max(1.2),
+  sodiumPerG: z.number().finite().nonnegative().max(1_000),
+  sugarPerG: z.number().finite().nonnegative().max(1.2),
 });
 
 export const foodWeightSchema = z.number().finite().positive().max(100_000);

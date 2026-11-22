@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { prepareMealPhotoFile, removeUploadedMealPlanPhoto, uploadMealPlanPhoto } from "@/lib/client-image";
 import type { Recipe, RecipeNutrition } from "@/lib/recipes";
 import { IconX } from "@/components/icons";
 
 type IngredientInput = { name: string; amount: string };
-const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
-const allowedPhotoTypes = ["image/jpeg", "image/png", "image/webp"];
 
 function isRecipeNutrition(value: unknown): value is RecipeNutrition {
   if (typeof value !== "object" || value === null) return false;
@@ -51,21 +49,18 @@ export default function PlanBuilder({
     };
   }, []);
 
-  function choosePhoto(file: File | undefined) {
+  async function choosePhoto(file: File | undefined) {
     if (!file) return;
-    if (!allowedPhotoTypes.includes(file.type)) {
-      setError("Choose a JPG, PNG, or WebP photo.");
-      return;
+    try {
+      const prepared = await prepareMealPhotoFile(file);
+      if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
+      photoPreviewUrl.current = URL.createObjectURL(prepared);
+      setPhotoPreview(photoPreviewUrl.current);
+      setError(null);
+      setPhoto(prepared);
+    } catch (photoError) {
+      setError(photoError instanceof Error ? photoError.message : "Unable to read photo.");
     }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setError("Photo size should be less than 3MB.");
-      return;
-    }
-    if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
-    photoPreviewUrl.current = URL.createObjectURL(file);
-    setPhotoPreview(photoPreviewUrl.current);
-    setError(null);
-    setPhoto(file);
   }
 
   function removePhoto() {
@@ -172,22 +167,9 @@ export default function PlanBuilder({
 
       let imageUrl: string | undefined;
       if (photo) {
-        const supabase = createClient();
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-        if (userError) throw new Error(userError.message);
-        if (!user) throw new Error("Sign in again before uploading a photo.");
-
-        const extension = photo.type === "image/jpeg" ? "jpg" : photo.type === "image/png" ? "png" : "webp";
-        const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
-        const { error: uploadError } = await supabase.storage
-          .from("meal-plan-photos")
-          .upload(path, photo, { contentType: photo.type, upsert: false });
-        if (uploadError) throw new Error(`Unable to upload photo: ${uploadError.message}`);
-        uploadedPhotoPath = path;
-        imageUrl = supabase.storage.from("meal-plan-photos").getPublicUrl(path).data.publicUrl;
+        const uploaded = await uploadMealPlanPhoto(photo);
+        uploadedPhotoPath = uploaded.path;
+        imageUrl = uploaded.imageUrl;
       }
 
       const recipe: Recipe = {
@@ -211,11 +193,8 @@ export default function PlanBuilder({
       if (!response.ok) {
         const message = payload.error?.message ?? "Unable to save meal plan.";
         if (uploadedPhotoPath) {
-          const { error: cleanupError } = await createClient().storage
-            .from("meal-plan-photos")
-            .remove([uploadedPhotoPath]);
+          await removeUploadedMealPlanPhoto(uploadedPhotoPath);
           uploadedPhotoPath = null;
-          if (cleanupError) throw new Error(`${message} The uploaded photo could not be removed: ${cleanupError.message}`);
         }
         setError(message);
         return;
@@ -236,12 +215,9 @@ export default function PlanBuilder({
       removePhoto();
       onPlanCreated?.(targetVisibility, trackerMessage, false);
     } catch (publishError) {
-      let message = publishError instanceof Error ? publishError.message : "Unable to save meal plan.";
+      const message = publishError instanceof Error ? publishError.message : "Unable to save meal plan.";
       if (uploadedPhotoPath) {
-        const { error: cleanupError } = await createClient().storage
-          .from("meal-plan-photos")
-          .remove([uploadedPhotoPath]);
-        if (cleanupError) message = `${message} The uploaded photo could not be removed: ${cleanupError.message}`;
+        await removeUploadedMealPlanPhoto(uploadedPhotoPath);
       }
       setError(message);
     } finally {
@@ -393,11 +369,11 @@ export default function PlanBuilder({
         ) : (
           <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border-control)] bg-[var(--surface-muted)] p-6 text-center focus-within:ring-2 focus-within:ring-[var(--leaf)] hover:border-[var(--leaf)]">
             <span className="text-sm font-bold text-[var(--foreground)]">Choose a meal photo</span>
-            <span className="mt-1 text-xs text-[var(--ink-muted)]">JPG, PNG, or WebP up to 3MB</span>
+            <span className="mt-1 text-xs text-[var(--ink-muted)]">JPG, PNG, or WebP (auto-compressed)</span>
             <input
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"
-              onChange={(event) => choosePhoto(event.target.files?.[0])}
+              onChange={(event) => void choosePhoto(event.target.files?.[0])}
               type="file"
             />
           </label>

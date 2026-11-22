@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#13110e",
+  themeColor: "#faf7f2",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -32,13 +32,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${hankenGrotesk.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${hankenGrotesk.variable} ${geistMono.variable} antialiased`}
     >
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => {
-  let theme = "dark";
+  let theme = "light";
   try {
     const saved = localStorage.getItem("bitewise-theme");
     if (saved === "light" || saved === "dark") theme = saved;
@@ -49,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col"><PwaRegister /><OfflineBanner />{children}</body>
+      <body className="flex min-h-[100dvh] flex-col"><PwaRegister /><OfflineBanner />{children}</body>
     </html>
   );
 }

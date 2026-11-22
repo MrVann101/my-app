@@ -1,4 +1,5 @@
 import { apiErrorResponse, ApiError, parseJson } from "@/lib/api";
+import { claimGlobalAiRateLimit, claimRateLimit } from "@/lib/rate-limit";
 import { estimateMealNutrition, mealNutritionRequestSchema } from "@/lib/recipes";
 import { createClient } from "@/lib/supabase/server";
 
@@ -7,15 +8,20 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ApiError(401, "Authentication is required.", "unauthorized");
+
     const body = await parseJson(request, mealNutritionRequestSchema);
 
-    const bucketStart = new Date(Math.floor(Date.now() / 60_000) * 60_000).toISOString();
-    const { data: globallyAllowed, error: limitError } = await supabase.rpc("claim_global_ai_rate_limit", {
-      p_bucket_start: bucketStart,
-      p_limit: 60,
+    await claimRateLimit({
+      key: `ai_estimate_nutrition:${user.id}`,
+      windowSeconds: 3600,
+      limit: 30,
+      message: "You have run several nutrition estimates this hour. Please try again shortly.",
     });
-    if (limitError) throw new ApiError(503, "Meal calorie estimation is not configured yet. Apply the global AI limit migration first.", "ai_rate_limit_unavailable");
-    if (!globallyAllowed) throw new ApiError(429, "Meal calorie estimation is busy right now. Try again shortly.", "global_ai_rate_limit");
+
+    const globallyAllowed = await claimGlobalAiRateLimit(60, supabase);
+    if (!globallyAllowed) {
+      throw new ApiError(429, "Meal calorie estimation is busy right now. Try again shortly.", "global_ai_rate_limit");
+    }
 
     try {
       return Response.json(await estimateMealNutrition(body.name, body.ingredients));

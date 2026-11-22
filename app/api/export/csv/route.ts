@@ -28,7 +28,14 @@ export async function GET() {
         controller.close();
       },
     });
-    return new Response(stream, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="bitewise-export-${new Date().toISOString().slice(0, 10)}.csv"`, "Cache-Control": "no-store" } });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="bitewise-export-${new Date().toISOString().slice(0, 10)}.csv"`,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
   } catch (error) {
     return apiErrorResponse(error);
   }

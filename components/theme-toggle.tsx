@@ -19,47 +19,60 @@ function subscribe(onStoreChange: () => void) {
 function getTheme(): Theme {
   try {
     const theme = window.localStorage.getItem("bitewise-theme");
-    return theme === "light" || theme === "dark" ? theme : "dark";
+    return theme === "dark" ? "dark" : "light";
   } catch {
-    return "dark";
+    return "light";
   }
 }
 
 function getServerTheme(): Theme {
-  return "dark";
+  return "light";
 }
 
-export default function ThemeToggle({ compact = false }: { compact?: boolean }) {
+export default function ThemeToggle() {
   const theme = useSyncExternalStore(subscribe, getTheme, getServerTheme);
 
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
+  function setTheme(next: Theme) {
     document.documentElement.dataset.theme = next;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", next === "dark" ? "#13110e" : "#faf7f2");
     try {
       window.localStorage.setItem("bitewise-theme", next);
     } catch {}
     window.dispatchEvent(new Event(themeChangeEvent));
-  };
+  }
 
   return (
-    <button
-      aria-label={`Switch to ${theme === "dark" ? "Light" : "Dark"} theme`}
-      className={`active-press flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3.5 py-2 text-xs font-bold text-[var(--foreground)] shadow-xs transition-colors hover:bg-[var(--surface-muted)] ${compact ? "size-11 justify-center px-0" : ""}`}
-      onClick={toggleTheme}
-      type="button"
+    <div
+      role="group"
+      aria-label="Theme mode"
+      className="inline-grid grid-cols-2 gap-1 rounded-xl border border-[var(--border-control)] bg-[var(--surface-muted)] p-1"
     >
-      {theme === "dark" ? (
-        <>
-          <IconMoon className="size-4 text-[var(--leaf)]" />
-          {!compact && <span>Dark Mode</span>}
-        </>
-      ) : (
-        <>
-          <IconSun className="size-4 text-[var(--sun)]" />
-          {!compact && <span>Light Mode</span>}
-        </>
-      )}
-    </button>
+      <button
+        type="button"
+        aria-pressed={theme === "light"}
+        onClick={() => setTheme("light")}
+        className={`active-press inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-xs font-bold transition-colors ${
+          theme === "light"
+            ? "bg-[var(--surface)] text-[var(--foreground)] shadow-xs"
+            : "text-[var(--ink-muted)] hover:text-[var(--foreground)]"
+        }`}
+      >
+        <IconSun className="size-4 text-[var(--sun)]" />
+        <span>Light</span>
+      </button>
+      <button
+        type="button"
+        aria-pressed={theme === "dark"}
+        onClick={() => setTheme("dark")}
+        className={`active-press inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-xs font-bold transition-colors ${
+          theme === "dark"
+            ? "bg-[var(--surface)] text-[var(--foreground)] shadow-xs"
+            : "text-[var(--ink-muted)] hover:text-[var(--foreground)]"
+        }`}
+      >
+        <IconMoon className="size-4 text-[var(--leaf)]" />
+        <span>Dark</span>
+      </button>
+    </div>
   );
 }

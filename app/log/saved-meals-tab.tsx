@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { IconCheck, IconMealPlans, IconSparkles, IconX } from "@/components/icons";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
+import { isSafeMealPlanImageUrl } from "@/lib/image-security";
 import { defaultMealTypeByHour, MEAL_SLOTS, normalizeMealSlot, type MealSlot } from "@/lib/meal-slot";
 
 type SavedMeal = {
@@ -12,6 +13,7 @@ type SavedMeal = {
   total_calories: number;
   recipe: {
     title: string;
+    imageUrl?: string;
     nutrition: {
       calories: number;
       proteinG: number;
@@ -200,21 +202,33 @@ export default function SavedMealsTab({ initialMealType }: { initialMealType?: s
                 key={meal.id}
                 className="flex flex-col justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-2xs transition-colors hover:border-[var(--leaf)]/40 sm:flex-row sm:items-center"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <strong className="truncate text-sm font-bold text-[var(--foreground)]">{title}</strong>
-                    <span className="shrink-0 rounded-md bg-[var(--leaf-light)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--leaf-ink)]">
-                      {meal.recipe ? "Recipe" : "Meal Plan"}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--ink-muted)]">
-                    <span className="tabular-nums font-bold text-[var(--leaf)]">{Math.round(calories).toLocaleString()} kcal</span>
-                    <span>·</span>
-                    <span className="tabular-nums">P {Math.round(protein)}g</span>
-                    <span>·</span>
-                    <span className="tabular-nums">C {Math.round(carbs)}g</span>
-                    <span>·</span>
-                    <span className="tabular-nums">F {Math.round(fat)}g</span>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  {meal.recipe?.imageUrl && isSafeMealPlanImageUrl(meal.recipe.imageUrl) && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={meal.recipe.imageUrl}
+                      alt={title}
+                      loading="lazy"
+                      decoding="async"
+                      className="size-12 shrink-0 rounded-xl border border-[var(--line)] object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <strong className="truncate text-sm font-bold text-[var(--foreground)]">{title}</strong>
+                      <span className="shrink-0 rounded-md bg-[var(--leaf-light)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--leaf-ink)]">
+                        {meal.recipe ? "Recipe" : "Meal Plan"}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--ink-muted)]">
+                      <span className="tabular-nums font-bold text-[var(--leaf)]">{Math.round(calories).toLocaleString()} kcal</span>
+                      <span>·</span>
+                      <span className="tabular-nums">P {Math.round(protein)}g</span>
+                      <span>·</span>
+                      <span className="tabular-nums">C {Math.round(carbs)}g</span>
+                      <span>·</span>
+                      <span className="tabular-nums">F {Math.round(fat)}g</span>
+                    </div>
                   </div>
                 </div>
 

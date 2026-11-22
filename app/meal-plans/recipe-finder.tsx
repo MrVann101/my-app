@@ -44,7 +44,7 @@ function suggestionKey(suggestion: RecipeSuggestion) {
   ].join("|");
 }
 
-export default function RecipeFinder() {
+export default function RecipeFinder({ onSaved }: { onSaved?: () => void } = {}) {
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [ingredientInput, setIngredientInput] = useState("");
   const [suggestions, setSuggestions] = useState<RecipeSuggestion[]>([]);
@@ -201,6 +201,7 @@ export default function RecipeFinder() {
       setSuggestions((current) => current.filter((suggestion) => suggestion !== savedSuggestion));
       setSelectedSuggestion(null);
       setSelectedRecipe(null);
+      onSaved?.();
       setStatus(`Saved "${savedTitle}" to My Plans.`);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to save this meal.");

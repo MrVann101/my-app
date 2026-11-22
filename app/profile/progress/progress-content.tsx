@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { IconChevronRight } from "@/components/icons";
 import { getBrowserDate } from "@/lib/date";
 
 function dateOffset(days: number) {
@@ -182,6 +184,13 @@ export default function ProgressContent() {
             <span className="text-base font-normal text-[var(--ink-muted)]"> / 30</span>
           </p>
           <p className="mt-1 text-xs text-[var(--ink-muted)]">Permanent daily summaries</p>
+          <Link
+            href="/history"
+            className="mt-2 inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--leaf)] hover:underline"
+          >
+            <span>View meal history</span>
+            <IconChevronRight className="size-3.5" />
+          </Link>
         </div>
       </div>
 

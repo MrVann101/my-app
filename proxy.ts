@@ -23,12 +23,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (!user.email_confirmed_at) {
-    const verificationUrl = new URL("/verify-email", request.url);
-    verificationUrl.searchParams.set("email", user.email ?? "");
-    return NextResponse.redirect(verificationUrl);
-  }
-
   if (request.nextUrl.pathname !== "/account-deletion") {
     const { data: profile } = await supabase.from("profiles").select("deletion_requested_at").eq("user_id", user.id).maybeSingle();
     if (profile?.deletion_requested_at) return NextResponse.redirect(new URL("/account-deletion", request.url));
@@ -48,6 +42,8 @@ export const config = {
     "/photo/:path*",
     "/suggestions/:path*",
     "/weekly-plan/:path*",
+    "/onboarding/:path*",
+    "/admin/:path*",
     "/account-deletion",
   ],
 };

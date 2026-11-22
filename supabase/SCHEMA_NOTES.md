@@ -12,6 +12,7 @@ The migration set is checked against the project plan's data model by `npm run v
 - `meal_plans.goal`, `diet_type`, and `total_calories` support the approved public-plan filters; `total_calories` is refreshed from item totals by a database trigger.
 - Food-log and meal-plan-item computed nutrient columns remain stored for query performance, but database triggers overwrite them from `weight_g` and per-gram rates on insert/update.
 - Plan creation is separate from daily logging. `food_logs.logged_from_plan_id` is provenance only and does not cause a plan to affect a day until a later logging operation copies its items.
+- `weekly_plan_meals` normalizes weekly plan schedule slots into relational rows (`day_of_week`, `slot_index`, `servings`, per-serving nutrition) with database triggers computing scaled meal totals and `weekly_plans.avg_daily_*` averages, while `weekly_plans.preferences` and `weekly_plans.days` remain synchronized for compatibility.
 
 ## Verification status
 

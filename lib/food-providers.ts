@@ -35,12 +35,11 @@ export function formatFoodTitle(raw: string): string {
 export async function searchUsda(query: string): Promise<FoodSearchResult[]> {
   const usdaApiKey = getUsdaApiKey();
   const url = new URL("https://api.nal.usda.gov/fdc/v1/foods/search");
-  url.searchParams.set("api_key", usdaApiKey);
   url.searchParams.set("query", query);
   url.searchParams.set("pageSize", "15");
   url.searchParams.set("dataType", "Foundation,SR Legacy,Survey (FNDDS),Branded");
 
-  const response = await fetchWithTimeout(url);
+  const response = await fetchWithTimeout(url, { "X-Api-Key": usdaApiKey });
   if (response.status === 429) throw new FoodProviderError("usda", "USDA rate limit reached.", true);
   if (!response.ok) throw new FoodProviderError("usda", `USDA request failed with status ${response.status}.`, response.status >= 500);
 
@@ -105,9 +104,13 @@ function normalizeOffProduct(product: unknown): FoodSearchResult[] {
   return [{ providerId: product.code, foodName: product.product_name, brandName: typeof product.brands === "string" ? product.brands : null, defaultWeightG: 100, nutrientRate: rate, dataSource: "off" }];
 }
 
-async function fetchWithTimeout(url: URL): Promise<Response> {
+async function fetchWithTimeout(url: URL, extraHeaders: Record<string, string> = {}): Promise<Response> {
   try {
-    return await fetch(url, { signal: AbortSignal.timeout(requestTimeoutMs), headers: { "User-Agent": "Bitewise/0.1 food search" } });
+    return await fetch(url, {
+      signal: AbortSignal.timeout(requestTimeoutMs),
+      redirect: "error",
+      headers: { "User-Agent": "Bitewise/0.1 food search", ...extraHeaders },
+    });
   } catch {
     throw new FoodProviderError(url.hostname.includes("usda") ? "usda" : "off", "Food provider timed out or could not be reached.", true);
   }

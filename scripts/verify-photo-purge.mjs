@@ -26,12 +26,14 @@ try {
   const bucket = buckets.data.find((item) => item.name === "food-photos");
   assert(bucket, "The food-photos Storage bucket does not exist; create it before enabling photo cleanup.");
 
-  const upload = await admin.storage.from("food-photos").upload(path, new Uint8Array([255, 216, 255, 216]), { contentType: "image/jpeg" });
-  if (upload.error) throw upload.error;
   const created = await admin.auth.admin.createUser({ email: `photo_purge_${suffix}@example.com`, password: "BitewisePhotoPurgeTest123!", email_confirm: true });
   if (created.error) throw created.error;
   userId = created.data.user.id;
-  const log = await admin.from("food_logs").insert({ user_id: userId, log_date: "2026-08-01", food_name: "Old photo", weight_g: 100, calories_per_g: 1, calories: 100, photo_url: `https://mgvwkniytczssqtgalgn.supabase.co/storage/v1/object/public/food-photos/${path}` }).select("id").single();
+  const ownedPath = `${userId}/${suffix}.jpg`;
+  const upload = await admin.storage.from("food-photos").upload(ownedPath, new Uint8Array([255, 216, 255, 216]), { contentType: "image/jpeg" });
+  if (upload.error) throw upload.error;
+  const supabaseOrigin = new URL(url).origin;
+  const log = await admin.from("food_logs").insert({ user_id: userId, log_date: "2026-08-01", food_name: "Old photo", weight_g: 100, calories_per_g: 1, calories: 100, photo_url: `${supabaseOrigin}/storage/v1/object/public/food-photos/${ownedPath}` }).select("id").single();
   if (log.error) throw log.error;
   const oldCreated = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
   const moved = await admin.from("food_logs").update({ created_at: oldCreated }).eq("id", log.data.id);
@@ -40,7 +42,7 @@ try {
   const response = await fetch(`${baseUrl}/api/cron/purge-photos`, { headers: { Authorization: `Bearer ${cronSecret}` } });
   const payload = await response.json();
   assert(response.ok, `Photo purge route failed: ${response.status}`);
-  const object = await admin.storage.from("food-photos").download(path);
+  const object = await admin.storage.from("food-photos").download(ownedPath);
   assert(object.error, "Expired photo object still exists after purge.");
   const row = await admin.from("food_logs").select("photo_url").eq("id", log.data.id).single();
   if (row.error) throw row.error;

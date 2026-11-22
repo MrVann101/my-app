@@ -1,10 +1,15 @@
+import { z } from "zod";
 import { apiErrorResponse, ApiError, parseJson } from "@/lib/api";
 import { badgesForProgress } from "@/lib/badges";
 import { computeNutrients } from "@/lib/food";
 import { foodLogRequestSchema } from "@/lib/food-log-schemas";
+import { isSafeFoodPhotoUrl } from "@/lib/image-security";
 import { logger } from "@/lib/logger";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { updateStreak } from "@/lib/streaks";
+
+const isoDateQuerySchema = z.iso.date();
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +27,9 @@ export async function POST(request: Request) {
         } catch {
           throw new ApiError(400, "Timezone must be a valid IANA timezone.", "invalid_timezone");
         }
+      }
+      if (body.photoUrl && !isSafeFoodPhotoUrl(body.photoUrl, user.id)) {
+        throw new ApiError(400, "Photo URL must belong to your uploaded food photos.", "invalid_photo_url");
       }
     }
 
@@ -58,7 +66,7 @@ export async function POST(request: Request) {
       ? await supabase.from("food_logs").insert(rows).select()
       : await supabase.from("food_logs").insert(rows[0]).select().single();
 
-    if (insertResult.error) throw new ApiError(400, insertResult.error.message, "food_log_save_failed");
+    if (insertResult.error) throw new ApiError(400, "Unable to save food log.", "food_log_save_failed");
     const logs = Array.isArray(insertResult.data)
       ? insertResult.data
       : insertResult.data
@@ -92,8 +100,23 @@ async function awardBadges(supabase: Awaited<ReturnType<typeof createClient>>, u
   if (countError || streakError) throw new ApiError(400, "Unable to update badges.", "badge_award_failed");
   const candidates = badgesForProgress(count ?? 0, Number(streak?.current_streak ?? 0));
   if (candidates.length === 0) return;
-  const { error } = await supabase.from("badges").upsert(candidates.map((badge) => ({ user_id: userId, badge_key: badge.badgeKey })), { onConflict: "user_id,badge_key", ignoreDuplicates: true });
-  if (error) throw new ApiError(400, error.message, "badge_award_failed");
+
+  // Award badges via service_role so authenticated users cannot forge arbitrary badges via PostgREST.
+  const writer = (() => {
+    try {
+      return createAdminClient();
+    } catch {
+      return supabase;
+    }
+  })();
+
+  const { error } = await writer
+    .from("badges")
+    .upsert(
+      candidates.map((badge) => ({ user_id: userId, badge_key: badge.badgeKey })),
+      { onConflict: "user_id,badge_key", ignoreDuplicates: true },
+    );
+  if (error) throw new ApiError(400, "Unable to update badges.", "badge_award_failed");
 }
 
 export async function GET(request: Request) {
@@ -103,17 +126,39 @@ export async function GET(request: Request) {
     if (!user) throw new ApiError(401, "Authentication is required.", "unauthorized");
 
     const params = new URL(request.url).searchParams;
-    const date = params.get("date");
-    const from = params.get("from");
-    const to = params.get("to");
-    const query = supabase.from("food_logs").select("*").eq("user_id", user.id).order("log_date", { ascending: false }).order("created_at", { ascending: false });
-    const filtered = date ? query.eq("log_date", date) : query.gte("log_date", from ?? "1900-01-01").lte("log_date", to ?? "2999-12-31");
+    const rawDate = params.get("date");
+    const rawFrom = params.get("from");
+    const rawTo = params.get("to");
+
+    const date = rawDate ? parseIsoDateParam(rawDate, "date") : null;
+    const from = rawFrom ? parseIsoDateParam(rawFrom, "from") : null;
+    const to = rawTo ? parseIsoDateParam(rawTo, "to") : null;
+
+    const query = supabase
+      .from("food_logs")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("log_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const filtered = date
+      ? query.eq("log_date", date)
+      : query.gte("log_date", from ?? "1900-01-01").lte("log_date", to ?? "2999-12-31");
     const { data: logs, error } = await filtered;
-    if (error) throw new ApiError(400, error.message, "food_log_fetch_failed");
+    if (error) throw new ApiError(400, "Unable to load food logs.", "food_log_fetch_failed");
     return Response.json({ logs });
   } catch (error) {
     return apiErrorResponse(error);
   }
+}
+
+function parseIsoDateParam(value: string, label: string): string {
+  const parsed = isoDateQuerySchema.safeParse(value);
+  if (!parsed.success) {
+    throw new ApiError(400, `Invalid ${label} date format. Expected YYYY-MM-DD.`, "invalid_date");
+  }
+  return parsed.data;
 }
 
 async function refreshDailySummary(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, logDate: string): Promise<string> {
@@ -142,20 +187,27 @@ async function refreshDailySummary(supabase: Awaited<ReturnType<typeof createCli
     hit_target: targetCalories > 0 && Math.abs(totalCalories - targetCalories) <= targetCalories * 0.1,
     logged_at_least_once: logs?.length > 0,
   }, { onConflict: "user_id,summary_date" });
-  if (error) throw new ApiError(400, error.message, "summary_save_failed");
+  if (error) throw new ApiError(400, "Unable to save daily summary.", "summary_save_failed");
   return profile?.timezone ?? "UTC";
 }
 
 async function refreshStreak(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, logDate: string) {
   const { data: existing, error: fetchError } = await supabase.from("streaks").select("current_streak, longest_streak, last_log_date").eq("user_id", userId).maybeSingle();
-  if (fetchError) throw new ApiError(400, fetchError.message, "streak_fetch_failed");
+  if (fetchError) throw new ApiError(400, "Unable to load streak.", "streak_fetch_failed");
   const next = updateStreak({ currentStreak: Number(existing?.current_streak ?? 0), longestStreak: Number(existing?.longest_streak ?? 0), lastLogDate: existing?.last_log_date ?? null }, logDate);
   const { error } = await supabase.from("streaks").upsert({ user_id: userId, current_streak: next.currentStreak, longest_streak: next.longestStreak, last_log_date: next.lastLogDate });
-  if (error) throw new ApiError(400, error.message, "streak_save_failed");
+  if (error) throw new ApiError(400, "Unable to save streak.", "streak_save_failed");
 }
 
 function localDate(timezone: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  let safeTz = "UTC";
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format();
+    safeTz = timezone;
+  } catch {
+    safeTz = "UTC";
+  }
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: safeTz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
 }

@@ -17,19 +17,32 @@ import {
   IconMealPlans,
   IconSparkles,
   IconCamera,
+  IconChevronRight,
   IconDashboard,
   IconLog,
+  IconShoppingBag,
+  IconUtensils,
   IconX,
 } from "./icons";
+
+type SearchGroupCategory = "Meal Plans & Recipes" | "Features & Tools" | "Pages & Settings";
 
 type AppCommand = {
   id: string;
   title: string;
-  category: "Features & Tools" | "Pages & Settings";
+  category: SearchGroupCategory;
   keywords: string[];
   description: string;
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
+};
+
+type SearchablePlanSummary = {
+  id: number;
+  name: string;
+  total_calories: number;
+  creator_username?: string;
+  visibility?: "private" | "public";
 };
 
 const APP_COMMANDS: AppCommand[] = [
@@ -47,7 +60,7 @@ const APP_COMMANDS: AppCommand[] = [
     title: "Quick Log",
     category: "Features & Tools",
     keywords: ["quick", "log", "food", "meal", "track", "add", "fast", "search"],
-    description: "Log meals from food database, saved recipes, text, or favorites.",
+    description: "Log meals from food database, custom foods, saved recipes, or favorites.",
     href: "/log",
     icon: IconLog,
   },
@@ -62,21 +75,48 @@ const APP_COMMANDS: AppCommand[] = [
   },
   {
     id: "meal-plans",
-    title: "Meal Plans & Recipes",
+    title: "My Meal Plans",
     category: "Features & Tools",
-    keywords: ["meal plans", "ingredients", "recipes", "cook", "my meals", "meal ideas"],
-    description: "Cook with ingredients you have, browse public plans, or save meals.",
-    href: "/meal-plans",
+    keywords: ["meal plans", "my plans", "saved recipes", "my meals"],
+    description: "View, photograph, or log your private saved meals and recipes.",
+    href: "/meal-plans?tab=my-plans",
+    icon: IconMealPlans,
+  },
+  {
+    id: "cook-ingredients",
+    title: "Cook with Ingredients",
+    category: "Features & Tools",
+    keywords: ["ingredients", "cook", "fridge", "pantry", "recipe finder", "meal ideas"],
+    description: "Enter ingredients you have on hand to generate recipes.",
+    href: "/meal-plans?tab=find-meals",
+    icon: IconUtensils,
+  },
+  {
+    id: "public-plans",
+    title: "Public Meal Plans",
+    category: "Features & Tools",
+    keywords: ["public", "community", "official", "bitewise team", "discover", "browse"],
+    description: "Explore official Bitewise Team and community meal plans.",
+    href: "/meal-plans?tab=public-plans",
+    icon: IconMealPlans,
+  },
+  {
+    id: "create-recipe",
+    title: "Create Recipe",
+    category: "Features & Tools",
+    keywords: ["create", "new recipe", "build meal", "manual", "custom recipe"],
+    description: "Build a custom recipe with photo upload and nutrition estimation.",
+    href: "/meal-plans?tab=manual-plan",
     icon: IconMealPlans,
   },
   {
     id: "weekly-plan",
-    title: "Weekly Plan",
+    title: "Weekly Plan & Grocery List",
     category: "Features & Tools",
-    keywords: ["weekly", "plan", "planner", "schedule"],
-    description: "Plan meals across the next seven days.",
+    keywords: ["weekly", "plan", "planner", "schedule", "grocery", "shopping list", "7 day"],
+    description: "Manage your 7-day meal schedule, saved plans, and grocery checklist.",
     href: "/weekly-plan",
-    icon: IconCalendar,
+    icon: IconShoppingBag,
   },
   {
     id: "suggestions",
@@ -161,21 +201,84 @@ const APP_COMMANDS: AppCommand[] = [
   },
 ];
 
-const CATEGORIES: AppCommand["category"][] = ["Features & Tools", "Pages & Settings"];
+const CATEGORIES: SearchGroupCategory[] = [
+  "Meal Plans & Recipes",
+  "Features & Tools",
+  "Pages & Settings",
+];
 
 export default function HeaderSearch() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [dynamicCommands, setDynamicCommands] = useState<AppCommand[]>([]);
+  const hasLoadedPlansRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
+  useEffect(() => {
+    if (!isOpen || hasLoadedPlansRef.current) return;
+    hasLoadedPlansRef.current = true;
+
+    let active = true;
+    void Promise.all([
+      fetch("/api/meal-plans", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/meal-plans/public?limit=20", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([savedPayload, publicPayload]) => {
+      if (!active) return;
+      const items: AppCommand[] = [];
+      const seenNames = new Set<string>();
+
+      const savedPlans: SearchablePlanSummary[] = Array.isArray(savedPayload?.plans) ? savedPayload.plans : [];
+      for (const plan of savedPlans) {
+        if (!plan?.name) continue;
+        const key = `saved:${plan.name.toLowerCase()}`;
+        if (seenNames.has(key)) continue;
+        seenNames.add(key);
+        items.push({
+          id: `saved-plan-${plan.id}`,
+          title: plan.name,
+          category: "Meal Plans & Recipes",
+          keywords: [plan.name.toLowerCase(), "saved", "my plan", "recipe"],
+          description: `Saved in My Plans · ${Math.round(Number(plan.total_calories) || 0)} kcal`,
+          href: "/meal-plans?tab=my-plans",
+          icon: IconMealPlans,
+        });
+      }
+
+      const publicPlans: SearchablePlanSummary[] = Array.isArray(publicPayload?.plans) ? publicPayload.plans : [];
+      for (const plan of publicPlans) {
+        if (!plan?.name) continue;
+        const key = `public:${plan.name.toLowerCase()}`;
+        if (seenNames.has(key)) continue;
+        seenNames.add(key);
+        const author = plan.creator_username === "Bitewise Team" ? "Bitewise Team" : `@${plan.creator_username ?? "community"}`;
+        items.push({
+          id: `public-plan-${plan.id}`,
+          title: plan.name,
+          category: "Meal Plans & Recipes",
+          keywords: [plan.name.toLowerCase(), author.toLowerCase(), "public", "recipe", "meal"],
+          description: `Public Plan by ${author} · ${Math.round(Number(plan.total_calories) || 0)} kcal`,
+          href: "/meal-plans?tab=public-plans",
+          icon: IconCalendar,
+        });
+      }
+
+      setDynamicCommands(items);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+
   const orderedCommands = useMemo(() => {
     const q = query.toLowerCase().trim();
+    const pool = q ? [...dynamicCommands, ...APP_COMMANDS] : APP_COMMANDS;
     const filtered = !q
-      ? APP_COMMANDS
-      : APP_COMMANDS.filter(
+      ? pool
+      : pool.filter(
           (cmd) =>
             cmd.title.toLowerCase().includes(q) ||
             cmd.description.toLowerCase().includes(q) ||
@@ -183,10 +286,10 @@ export default function HeaderSearch() {
         );
 
     return CATEGORIES.flatMap((category) => filtered.filter((cmd) => cmd.category === category));
-  }, [query]);
+  }, [query, dynamicCommands]);
 
   const groupedCommands = useMemo(() => {
-    return CATEGORIES.reduce<Array<{ category: AppCommand["category"]; items: AppCommand[]; startIndex: number }>>(
+    return CATEGORIES.reduce<Array<{ category: SearchGroupCategory; items: AppCommand[]; startIndex: number }>>(
       (groups, category) => {
         const items = orderedCommands.filter((cmd) => cmd.category === category);
         if (items.length === 0) return groups;
@@ -203,7 +306,7 @@ export default function HeaderSearch() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setSelectedIndex(0);
-        setIsOpen(true);
+        setIsOpen((prev) => !prev);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -234,11 +337,11 @@ export default function HeaderSearch() {
           setSelectedIndex(0);
           setIsOpen(true);
         }}
-        aria-label="Open navigation search"
-        className="active-press flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--ink-muted)] shadow-xs transition-colors hover:border-[var(--leaf)] hover:text-[var(--foreground)]"
+        aria-label="Search pages, settings, and meal plans"
+        className="active-press relative flex size-10 items-center justify-center gap-2 rounded-full border border-[var(--border-control)] bg-[var(--surface)] text-xs font-semibold text-[var(--ink-muted)] shadow-xs transition-colors after:absolute after:-inset-0.5 after:content-[''] hover:border-[var(--leaf)] hover:text-[var(--foreground)] sm:h-11 sm:w-auto sm:rounded-xl sm:px-3.5 sm:after:hidden"
       >
-        <IconSearch className="size-4 text-[var(--leaf)]" />
-        <span className="hidden sm:inline">Search pages...</span>
+        <IconSearch className="size-4 shrink-0 text-[var(--leaf)]" />
+        <span className="hidden sm:inline">Search</span>
       </button>
 
       <Dialog
@@ -248,36 +351,38 @@ export default function HeaderSearch() {
         initialFocusRef={inputRef}
         maxWidthClass="max-w-xl"
         alignTop
+        instant
+        overflowHidden
       >
-        <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-          <div className="flex items-center gap-2">
-            <IconSearch className="size-5 text-[var(--leaf)]" />
-            <h2 id="command-search-title" className="text-base font-bold text-[var(--foreground)]">
-              Navigation Search
-            </h2>
+        <div className="shrink-0 space-y-3 border-b border-[var(--line)] pb-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <IconSearch className="size-4.5 text-[var(--leaf)]" />
+              <h2 id="command-search-title" className="text-sm font-bold text-[var(--foreground)] sm:text-base">
+                Quick Search
+              </h2>
+            </div>
+            <button
+              type="button"
+              aria-label="Close search"
+              onClick={handleClose}
+              className="active-press grid size-10 place-items-center rounded-xl text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
+            >
+              <IconX className="size-4.5" />
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label="Close navigation search"
-            onClick={handleClose}
-            className="active-press inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl px-3 text-xs font-bold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
-          >
-            <IconX className="size-4" />
-            <span>Close</span>
-          </button>
-        </div>
 
-        <div className="mt-4 space-y-4">
-          <div>
+          <div className="relative">
             <label htmlFor="global-command-search" className="sr-only">
-              Search pages and settings
+              Search pages, meal plans, and settings
             </label>
+            <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--ink-muted)]" />
             <input
               id="global-command-search"
               type="text"
               ref={inputRef}
-              className="h-11 w-full rounded-xl border border-[var(--border-control)] bg-[var(--background)] px-4 text-sm font-semibold outline-none focus:border-[var(--leaf)]"
-              placeholder="Jump to a page or setting (e.g. 'progress', 'photo', 'theme')..."
+              className="h-11 w-full rounded-xl border border-[var(--border-control)] bg-[var(--background)] pl-10 pr-9 text-sm font-semibold outline-none transition-colors focus:border-[var(--leaf)]"
+              placeholder="Search pages, public recipes, saved meals, or settings..."
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -296,11 +401,27 @@ export default function HeaderSearch() {
                 }
               }}
             />
+            {query && (
+              <button
+                type="button"
+                aria-label="Clear search query"
+                onClick={() => {
+                  setQuery("");
+                  setSelectedIndex(0);
+                  inputRef.current?.focus();
+                }}
+                className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
+              >
+                <IconX className="size-3.5" />
+              </button>
+            )}
           </div>
+        </div>
 
+        <div className="mt-3 max-h-[54dvh] overflow-y-auto pr-1">
           {orderedCommands.length === 0 ? (
-            <p className="py-6 text-center text-xs text-[var(--ink-muted)]">
-              No matching pages or settings found for &quot;{query}&quot;.
+            <p className="py-8 text-center text-xs text-[var(--ink-muted)]">
+              No matching pages or meal plans found for &quot;{query}&quot;.
             </p>
           ) : (
             <div className="space-y-4">
@@ -324,7 +445,7 @@ export default function HeaderSearch() {
                           onClick={() => handleNavigate(cmd.href)}
                           className={`active-press flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors ${
                             isSelected
-                              ? "border-[var(--leaf)] bg-[var(--leaf-light)]/50"
+                              ? "border-[var(--leaf)] bg-[var(--leaf-light)]/60"
                               : "border-[var(--line)] bg-[var(--surface-muted)] hover:border-[var(--leaf)] hover:bg-[var(--surface)]"
                           }`}
                         >
@@ -339,7 +460,7 @@ export default function HeaderSearch() {
                               </span>
                             </div>
                           </div>
-                          <span aria-hidden="true" className="shrink-0 text-xs font-bold text-[var(--leaf)]">→</span>
+                          <IconChevronRight aria-hidden="true" className="size-4 shrink-0 text-[var(--leaf)]" />
                         </button>
                       );
                     })}

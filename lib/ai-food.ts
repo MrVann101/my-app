@@ -1,5 +1,6 @@
 import { getGeminiApiKey, getGroqApiKey } from "@/lib/env";
 import { nutrientRateSchema, foodWeightSchema } from "@/lib/food";
+import { detectImageMimeFromBytes } from "@/lib/image-security";
 import { z } from "zod";
 
 export const foodEstimateSchema = z.object({
@@ -22,10 +23,21 @@ const acceptedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const visionPrompt = `Identify the food in this image and return one item per distinct, calorie-bearing food component, not one combined item for the whole plate. Separate side dishes and recognizable components of mixed dishes so each gets its own weight, nutrients, and calorie estimate. For example, chicken adobo with rice must return separate items for adobo and rice; for sinigang, return separate items for pork and major vegetables when they can be visually identified or reasonably estimated. Do not group rice with the main dish. Estimate each item's edible serving weight and nutrients per gram independently. Mark uncertain estimates low confidence and do not claim an exact recipe. Return JSON only with this exact shape: {"items":[{"foodName":"string","estimatedWeightG":number,"nutrientRate":{"caloriesPerG":number,"proteinPerG":number,"carbsPerG":number,"fatPerG":number,"fiberPerG":number,"sodiumPerG":number,"sugarPerG":number},"confidence":"low|medium|high"}]}. Do not count the plate. Use 0 only when a nutrient is unavailable; vinegar, water, and spices may have negligible calories.`;
 
 export async function validateFoodImage(file: File): Promise<{ base64: string; mimeType: string }> {
-  if (!acceptedMimeTypes.has(file.type)) throw new AiFoodError("Unsupported image type. Use JPEG, PNG, or WebP.");
-  if (file.size > maxImageBytes) throw new AiFoodError("Image must be 10 MB or smaller.");
+  if (!acceptedMimeTypes.has(file.type)) {
+    throw new AiFoodError("Unsupported image type. Use JPEG, PNG, or WebP.");
+  }
+  if (file.size <= 0 || file.size > maxImageBytes) {
+    throw new AiFoodError("Image must be 10 MB or smaller.");
+  }
   const bytes = new Uint8Array(await file.arrayBuffer());
-  return { base64: Buffer.from(bytes).toString("base64"), mimeType: file.type };
+  if (bytes.byteLength <= 0 || bytes.byteLength > maxImageBytes) {
+    throw new AiFoodError("Image must be 10 MB or smaller.");
+  }
+  const detectedMime = detectImageMimeFromBytes(bytes);
+  if (!detectedMime) {
+    throw new AiFoodError("Unsupported image type. Use JPEG, PNG, or WebP.");
+  }
+  return { base64: Buffer.from(bytes).toString("base64"), mimeType: detectedMime };
 }
 
 export async function analyzeFoodImage(input: { base64: string; mimeType: string }): Promise<AiFoodResponse & { providerUsed: "gemini" | "groq" }> {
@@ -51,11 +63,15 @@ export class AiFoodError extends Error {
 
 async function analyzeWithGemini(input: { base64: string; mimeType: string }): Promise<AiFoodResponse> {
   const key = getGeminiApiKey();
-  const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${encodeURIComponent(key)}`, {
+  const response = await fetchWithRetry("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent", {
     method: "POST",
     signal: AbortSignal.timeout(20_000),
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: visionPrompt }, { inline_data: { mime_type: input.mimeType, data: input.base64 } }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }),
+    redirect: "error",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: visionPrompt }, { inline_data: { mime_type: input.mimeType, data: input.base64 } }] }],
+      generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 1200 },
+    }),
   });
   if (!response.ok) throw new AiFoodError(`Gemini returned status ${response.status}.`, response.status >= 500 || response.status === 429);
   const payload: unknown = await response.json();
@@ -68,8 +84,14 @@ async function analyzeWithGroq(input: { base64: string; mimeType: string }): Pro
   const response = await fetchWithRetry("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     signal: AbortSignal.timeout(20_000),
+    redirect: "error",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: "meta-llama/llama-4-scout-17b-16e-instruct", temperature: 0.1, max_completion_tokens: 1200, messages: [{ role: "user", content: [{ type: "text", text: visionPrompt }, { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.base64}` } }] }] }),
+    body: JSON.stringify({
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      temperature: 0.1,
+      max_completion_tokens: 1200,
+      messages: [{ role: "user", content: [{ type: "text", text: visionPrompt }, { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.base64}` } }] }],
+    }),
   });
   if (!response.ok) throw new AiFoodError(`Groq returned status ${response.status}.`, response.status >= 500 || response.status === 429);
   const payload: unknown = await response.json();

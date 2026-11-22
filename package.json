@@ -20,16 +20,20 @@
     "verify:retention-purge": "node scripts/verify-retention-purge.mjs",
     "verify:photo-purge": "node scripts/verify-photo-purge.mjs",
     "smoke:check": "node scripts/smoke-check.mjs",
-    "verify:meal-plan-fork": "node scripts/verify-meal-plan-fork.mjs"
-    ,"verify:deletion-visibility": "node scripts/verify-deletion-visibility.mjs"
+    "verify:meal-plan-fork": "node scripts/verify-meal-plan-fork.mjs",
+    "verify:deletion-visibility": "node scripts/verify-deletion-visibility.mjs",
+    "seed:public-plans": "node scripts/reset-and-seed-public-plans.mjs",
+    "sync:public-plan-photos": "node scripts/sync-public-plan-photos.mjs",
+    "grant:admin": "node scripts/grant-admin.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.6",
     "@supabase/supabase-js": "^2.115.0",
-    "next": "16.3.4",
+    "motion": "^14.14.0",
+    "next": "16.4.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "zod": "^4.5.4"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -37,7 +41,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.6"

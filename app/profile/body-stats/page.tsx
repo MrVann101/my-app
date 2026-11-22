@@ -4,7 +4,7 @@ import ProfileTools from "../profile-tools";
 
 export default function BodyStatsPage() {
   return (
-    <AppShell eyebrow="Settings" title="Body Stats & Calorie Targets">
+    <AppShell eyebrow="Settings" title="Body Stats & Targets">
       <div className="space-y-6">
         <BackLink />
 

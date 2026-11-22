@@ -7,6 +7,7 @@ import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import Dialog from "@/components/dialog";
 import FoodLogRow from "@/components/food-log-row";
 import StreakCalendar from "@/components/streak-calendar";
+import Badges from "./badges";
 import SuggestionsCard from "./suggestions-card";
 import {
   IconLog,
@@ -14,6 +15,7 @@ import {
   IconCoffee,
   IconSun,
   IconUtensils,
+  IconSnack,
   IconPlus,
   IconZap,
   IconX,
@@ -165,11 +167,19 @@ export default function DashboardContent() {
 
   if (!data) {
     return (
-      <div className="grid animate-pulse gap-6 lg:grid-cols-12">
-        <div className="h-60 rounded-[2rem] bg-[var(--surface-muted)] lg:col-span-7" />
-        <div className="h-60 rounded-[2rem] bg-[var(--surface-muted)] lg:col-span-5" />
-        <div className="h-72 rounded-2xl bg-[var(--surface-muted)] lg:col-span-7" />
-        <div className="h-72 rounded-2xl bg-[var(--surface-muted)] lg:col-span-5" />
+      <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+          <div className="h-56 rounded-[2rem] bg-[var(--surface-muted)] lg:col-span-7" />
+          <div className="h-56 rounded-[2rem] bg-[var(--surface-muted)] lg:col-span-5" />
+        </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
+          <div className="h-80 rounded-2xl bg-[var(--surface-muted)] lg:col-span-7" />
+          <div className="space-y-3 lg:col-span-5">
+            <div className="h-32 rounded-2xl bg-[var(--surface-muted)]" />
+            <div className="h-16 rounded-2xl bg-[var(--surface-muted)]" />
+            <div className="h-20 rounded-2xl bg-[var(--surface-muted)]" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -244,7 +254,7 @@ export default function DashboardContent() {
     { key: "breakfast", label: "Breakfast", icon: IconCoffee },
     { key: "lunch", label: "Lunch", icon: IconSun },
     { key: "dinner", label: "Dinner", icon: IconUtensils },
-    { key: "snack", label: "Snacks", icon: IconHistory },
+    { key: "snack", label: "Snacks", icon: IconSnack },
   ] as const;
 
   const logs = data.logs ?? [];
@@ -267,285 +277,303 @@ export default function DashboardContent() {
 
   return (
     <>
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        {/* 1. Primary Calorie Hero Card */}
-        <section className="order-1 relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[var(--hero-from)] via-[var(--hero-via)] to-[var(--hero-to)] p-6 text-white shadow-md sm:p-7 lg:order-none lg:col-span-7">
-          <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-white/10 blur-2xl" />
+      <div className="space-y-6">
+        {/* Row 1: Primary Daily Overview */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-stretch">
+          {/* 1. Primary Calorie Hero Card */}
+          <section className="relative flex flex-col justify-between overflow-hidden rounded-[2rem] bg-gradient-to-br from-[var(--hero-from)] via-[var(--hero-via)] to-[var(--hero-to)] p-6 text-white shadow-md sm:p-7 lg:col-span-7">
+            <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-white/10 blur-2xl" />
 
-          <div className="relative flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#e5f2ea]">
-                {isOverBudget ? "Calories Over Budget" : "Calories Remaining"}
-              </p>
-              <p className="tabular-nums mt-2 text-5xl font-extrabold tracking-tight text-white sm:text-6xl">
-                {Math.abs(Math.round(remaining)).toLocaleString()}
-              </p>
-              <p className="mt-2 text-xs font-medium text-[#e5f2ea]">
-                {Math.round(consumed).toLocaleString()} logged · {Math.round(burned).toLocaleString()} exercise credit
-              </p>
+            <div className="relative flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-[#e5f2ea]">
+                  {isOverBudget ? "Calories Over Budget" : "Calories Remaining"}
+                </p>
+                <p className="tabular-nums mt-2 text-5xl font-extrabold tracking-tight text-white sm:text-6xl">
+                  {Math.abs(Math.round(remaining)).toLocaleString()}
+                </p>
+                <p className="mt-2 text-xs font-medium text-[#e5f2ea]">
+                  {Math.round(consumed).toLocaleString()} logged · {Math.round(burned).toLocaleString()} exercise credit
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 self-start">
+                <div className="flex items-center gap-2 rounded-full border border-white/30 bg-black/15 px-3.5 py-1.5">
+                  <span
+                    aria-hidden="true"
+                    className={`size-2 rounded-full ${isOverBudget ? "bg-[#fca5a5]" : "bg-[#bbf7d0] animate-pulse"}`}
+                  />
+                  <span className="text-xs font-bold tracking-wide text-white">
+                    {isOverBudget ? "Over Budget" : "On Track"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExerciseError(null);
+                    setShowExerciseModal(true);
+                  }}
+                  className="active-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/35 bg-black/20 px-3.5 text-xs font-bold text-white transition-colors hover:bg-black/30"
+                >
+                  <IconZap className="size-3.5" />
+                  <span>Log exercise</span>
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 self-start">
-              <div className="flex items-center gap-2 rounded-full border border-white/30 bg-black/15 px-3.5 py-1.5">
-                <span
-                  aria-hidden="true"
-                  className={`size-2 rounded-full ${isOverBudget ? "bg-[#fca5a5]" : "bg-[#bbf7d0] animate-pulse"}`}
+            <div className="relative mt-6">
+              <div className="mb-2 flex items-center justify-between text-xs font-medium text-[#e5f2ea]">
+                <span>{Math.round(progress)}% of daily target</span>
+                <span className="tabular-nums">{Math.round(target).toLocaleString()} kcal target</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Daily calorie progress"
+                aria-valuenow={Math.round(progress)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-2.5 overflow-hidden rounded-full bg-black/25"
+              >
+                <div
+                  className="h-full w-full origin-left rounded-full bg-white shadow-xs transition-transform duration-500 ease-out"
+                  style={{ transform: `scaleX(${progress / 100})` }}
                 />
-                <span className="text-xs font-bold tracking-wide text-white">
-                  {isOverBudget ? "Over Budget" : "On Track"}
+              </div>
+            </div>
+          </section>
+
+          {/* 2. Unified Macros & Micronutrients Card */}
+          <section className="flex flex-col justify-between rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs lg:col-span-5">
+            <div>
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--ink-muted)]">Macros Today</h2>
+                <span className="tabular-nums text-xs font-semibold text-[var(--ink-muted)]">
+                  {Math.round(totalMacroG)}g total
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setExerciseError(null);
-                  setShowExerciseModal(true);
-                }}
-                className="active-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/35 bg-black/20 px-3.5 text-xs font-bold text-white transition-colors hover:bg-black/30"
-              >
-                <IconZap className="size-3.5" />
-                <span>Log exercise</span>
-              </button>
-            </div>
-          </div>
 
-          <div className="relative mt-7">
-            <div className="mb-2 flex items-center justify-between text-xs font-medium text-[#e5f2ea]">
-              <span>{Math.round(progress)}% of daily target</span>
-              <span className="tabular-nums">{Math.round(target).toLocaleString()} kcal target</span>
-            </div>
-            <div
-              role="progressbar"
-              aria-label="Daily calorie progress"
-              aria-valuenow={Math.round(progress)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              className="h-2.5 overflow-hidden rounded-full bg-black/25"
-            >
-              <div
-                className="h-full w-full origin-left rounded-full bg-white shadow-xs transition-transform duration-500 ease-out"
-                style={{ transform: `scaleX(${progress / 100})` }}
-              />
-            </div>
-          </div>
-        </section>
+              <div className="mt-3.5 flex flex-col items-center gap-4 sm:flex-row">
+                <div className="relative flex shrink-0 items-center justify-center">
+                  <svg
+                    className="size-24 -rotate-90"
+                    viewBox="0 0 100 100"
+                    role="img"
+                    aria-label={`Macro ratio: ${Math.round(macros.proteinG)} grams protein (${Math.round(pPct)}%), ${Math.round(macros.carbsG)} grams carbs (${Math.round(cPct)}%), and ${Math.round(macros.fatG)} grams fat (${Math.round(fPct)}%).`}
+                  >
+                    <circle cx="50" cy="50" r={DONUT_RADIUS} stroke="var(--surface-muted)" strokeWidth="12" fill="none" />
+                    {totalMacroG > 0 && (
+                      <>
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r={DONUT_RADIUS}
+                          stroke="var(--macro-protein)"
+                          strokeWidth="12"
+                          fill="none"
+                          strokeDasharray={`${pDash.toFixed(2)} ${DONUT_CIRCUMFERENCE.toFixed(2)}`}
+                          strokeDashoffset="0"
+                        />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r={DONUT_RADIUS}
+                          stroke="var(--macro-carbs)"
+                          strokeWidth="12"
+                          fill="none"
+                          strokeDasharray={`${cDash.toFixed(2)} ${DONUT_CIRCUMFERENCE.toFixed(2)}`}
+                          strokeDashoffset={`-${pDash.toFixed(2)}`}
+                        />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r={DONUT_RADIUS}
+                          stroke="var(--macro-fat)"
+                          strokeWidth="12"
+                          fill="none"
+                          strokeDasharray={`${fDash.toFixed(2)} ${DONUT_CIRCUMFERENCE.toFixed(2)}`}
+                          strokeDashoffset={`-${(pDash + cDash).toFixed(2)}`}
+                        />
+                      </>
+                    )}
+                  </svg>
+                  <div className="absolute text-center">
+                    <span className="block text-[10px] font-bold uppercase text-[var(--ink-muted)]">Total</span>
+                    <strong className="tabular-nums text-xs font-extrabold text-[var(--foreground)]">{Math.round(totalMacroG)}g</strong>
+                  </div>
+                </div>
 
-        {/* 2. Unified Macros & Micronutrients Card */}
-        <section className="order-2 rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-xs sm:p-6 lg:order-none lg:col-span-5">
-          <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--ink-muted)]">Macros Today</h2>
-            <span className="tabular-nums text-xs font-semibold text-[var(--ink-muted)]">
-              {Math.round(totalMacroG)}g total
-            </span>
-          </div>
-
-          <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row">
-            <div className="relative flex shrink-0 items-center justify-center">
-              <svg
-                className="size-28 -rotate-90"
-                viewBox="0 0 100 100"
-                role="img"
-                aria-label={`Macro ratio: ${Math.round(macros.proteinG)} grams protein (${Math.round(pPct)}%), ${Math.round(macros.carbsG)} grams carbs (${Math.round(cPct)}%), and ${Math.round(macros.fatG)} grams fat (${Math.round(fPct)}%).`}
-              >
-                <circle cx="50" cy="50" r={DONUT_RADIUS} stroke="var(--surface-muted)" strokeWidth="12" fill="none" />
-                {totalMacroG > 0 && (
-                  <>
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r={DONUT_RADIUS}
-                      stroke="var(--macro-protein)"
-                      strokeWidth="12"
-                      fill="none"
-                      strokeDasharray={`${pDash.toFixed(2)} ${DONUT_CIRCUMFERENCE.toFixed(2)}`}
-                      strokeDashoffset="0"
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r={DONUT_RADIUS}
-                      stroke="var(--macro-carbs)"
-                      strokeWidth="12"
-                      fill="none"
-                      strokeDasharray={`${cDash.toFixed(2)} ${DONUT_CIRCUMFERENCE.toFixed(2)}`}
-                      strokeDashoffset={`-${pDash.toFixed(2)}`}
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r={DONUT_RADIUS}
-                      stroke="var(--macro-fat)"
-                      strokeWidth="12"
-                      fill="none"
-                      strokeDasharray={`${fDash.toFixed(2)} ${DONUT_CIRCUMFERENCE.toFixed(2)}`}
-                      strokeDashoffset={`-${(pDash + cDash).toFixed(2)}`}
-                    />
-                  </>
-                )}
-              </svg>
-              <div className="absolute text-center">
-                <span className="block text-[10px] font-bold uppercase text-[var(--ink-muted)]">Total</span>
-                <strong className="tabular-nums text-sm font-extrabold text-[var(--foreground)]">{Math.round(totalMacroG)}g</strong>
+                <div className="w-full space-y-2.5">
+                  {macroConfigs.map((m) => {
+                    const pct = m.target > 0 ? Math.min(100, Math.max(0, (m.current / m.target) * 100)) : 0;
+                    return (
+                      <div key={m.label} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="inline-flex items-center gap-1.5 font-bold text-[var(--foreground)]">
+                            <span className="size-2.5 rounded-full" style={m.dotStyle} aria-hidden="true" />
+                            <span>{m.label}</span>
+                            <span className="tabular-nums font-medium text-[var(--ink-muted)]">({Math.round(m.sharePct)}%)</span>
+                          </span>
+                          <span className="tabular-nums font-bold text-[var(--foreground)]">
+                            {Math.round(m.current)}
+                            <span className="font-normal text-[var(--ink-muted)]"> / {Math.round(m.target)}{m.unit}</span>
+                          </span>
+                        </div>
+                        <div
+                          role="progressbar"
+                          aria-label={`${m.label} progress`}
+                          aria-valuenow={Math.round(pct)}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          className="h-2 overflow-hidden rounded-full bg-[var(--surface-muted)]"
+                        >
+                          <div
+                            className="h-full w-full origin-left rounded-full transition-transform duration-500 ease-out"
+                            style={{ ...m.barStyle, transform: `scaleX(${pct / 100})` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            <div className="w-full space-y-3">
-              {macroConfigs.map((m) => {
-                const pct = m.target > 0 ? Math.min(100, Math.max(0, (m.current / m.target) * 100)) : 0;
+            <table className="sr-only">
+              <caption>Macro amounts and their share of today&apos;s total</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Macro</th>
+                  <th scope="col">Logged</th>
+                  <th scope="col">Target</th>
+                  <th scope="col">Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {macroConfigs.map((m) => (
+                  <tr key={m.label}>
+                    <th scope="row">{m.label}</th>
+                    <td>{Math.round(m.current)}g</td>
+                    <td>{Math.round(m.target)}g</td>
+                    <td>{Math.round(m.sharePct)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-3.5 grid grid-cols-3 gap-2 border-t border-[var(--line)] pt-3">
+              {microConfigs.map((m) => (
+                <div key={m.label} className="rounded-xl bg-[var(--surface-muted)] px-2.5 py-1.5">
+                  <span className="block text-[11px] font-semibold text-[var(--ink-muted)]">{m.label}</span>
+                  <p className="tabular-nums mt-0.5 text-xs font-extrabold text-[var(--foreground)]">
+                    {displayNutrient(m.current, m.current > 0 ? "usda" : "manual", m.unit)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* Row 2: Primary Workspace + Compact Secondary Rail */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
+          {/* 3. Today's Meals */}
+          <section className="space-y-4 lg:col-span-7">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--ink-muted)]">Today&apos;s Meals</h2>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/history"
+                  className="active-press inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[var(--border-control)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--ink-muted)] transition-colors hover:border-[var(--leaf)] hover:text-[var(--foreground)]"
+                >
+                  <IconHistory className="size-4" />
+                  <span>History</span>
+                </Link>
+                <Link
+                  href="/log"
+                  className="active-press inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-4 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
+                >
+                  <IconLog className="size-4" />
+                  <span>Quick Log</span>
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {groupedLogs.map((slot) => {
+                const SlotIcon = slot.icon;
                 return (
-                  <div key={m.label} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="inline-flex items-center gap-2 font-bold text-[var(--foreground)]">
-                        <span className="size-2.5 rounded-full" style={m.dotStyle} aria-hidden="true" />
-                        <span>{m.label}</span>
-                        <span className="tabular-nums font-medium text-[var(--ink-muted)]">({Math.round(m.sharePct)}%)</span>
-                      </span>
-                      <span className="tabular-nums font-bold text-[var(--foreground)]">
-                        {Math.round(m.current)}
-                        <span className="font-normal text-[var(--ink-muted)]"> / {Math.round(m.target)}{m.unit}</span>
-                      </span>
-                    </div>
-                    <div
-                      role="progressbar"
-                      aria-label={`${m.label} progress`}
-                      aria-valuenow={Math.round(pct)}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      className="h-2 overflow-hidden rounded-full bg-[var(--surface-muted)]"
-                    >
-                      <div
-                        className="h-full w-full origin-left rounded-full transition-transform duration-500 ease-out"
-                        style={{ ...m.barStyle, transform: `scaleX(${pct / 100})` }}
-                      />
+                  <div
+                    key={slot.key}
+                    className="flex flex-col justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between border-b border-[var(--line)]/60 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="grid size-9 place-items-center rounded-xl bg-[var(--surface-muted)] text-[var(--leaf)]">
+                            <SlotIcon className="size-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-[var(--foreground)]">{slot.label}</h3>
+                            <p className="text-[11px] text-[var(--ink-muted)]">
+                              {slot.items.length} {slot.items.length === 1 ? "item" : "items"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="tabular-nums text-sm font-extrabold text-[var(--foreground)]">
+                            {Math.round(slot.subtotal)} kcal
+                          </span>
+                          <Link
+                            href={`/log?tab=search&meal=${slot.key}`}
+                            aria-label={`Log ${slot.label}`}
+                            className="active-press grid size-11 place-items-center rounded-xl border border-[var(--border-control)] text-[var(--leaf)] transition-colors hover:border-[var(--leaf)] hover:bg-[var(--leaf-light)]"
+                          >
+                            <IconPlus className="size-4" />
+                          </Link>
+                        </div>
+                      </div>
+
+                      {slot.items.length > 0 ? (
+                        <div className="mt-2 divide-y divide-[var(--line)]/40">
+                          {slot.items.map((log) => (
+                            <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-3 flex items-center justify-between rounded-xl border border-dashed border-[var(--line)] bg-[var(--surface-muted)]/50 px-3 py-2 text-xs text-[var(--ink-muted)]">
+                          <span>No {slot.label.toLowerCase()} logged</span>
+                          <Link
+                            href={`/log?tab=search&meal=${slot.key}`}
+                            className="inline-flex min-h-11 items-center gap-1 px-2 font-semibold text-[var(--leaf)] hover:underline"
+                          >
+                            <IconPlus className="size-3.5" />
+                            <span>Add</span>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
 
-          <table className="sr-only">
-            <caption>Macro amounts and their share of today&apos;s total</caption>
-            <thead>
-              <tr>
-                <th scope="col">Macro</th>
-                <th scope="col">Logged</th>
-                <th scope="col">Target</th>
-                <th scope="col">Share</th>
-              </tr>
-            </thead>
-            <tbody>
-              {macroConfigs.map((m) => (
-                <tr key={m.label}>
-                  <th scope="row">{m.label}</th>
-                  <td>{Math.round(m.current)}g</td>
-                  <td>{Math.round(m.target)}g</td>
-                  <td>{Math.round(m.sharePct)}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--line)] pt-3">
-            {microConfigs.map((m) => (
-              <div key={m.label} className="rounded-xl bg-[var(--surface-muted)] px-3 py-2">
-                <span className="block text-[11px] font-semibold text-[var(--ink-muted)]">{m.label}</span>
-                <p className="tabular-nums mt-0.5 text-sm font-extrabold text-[var(--foreground)]">
-                  {displayNutrient(m.current, m.current > 0 ? "usda" : "manual", m.unit)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 3. Today's Meals */}
-        <section className="order-3 space-y-4 lg:order-none lg:col-span-7">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--ink-muted)]">Today&apos;s Meals</h2>
-            <Link
-              href="/log"
-              className="active-press inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--leaf)] px-4 text-xs font-bold text-[var(--on-leaf)] shadow-xs hover:bg-[var(--leaf-deep)]"
-            >
-              <IconLog className="size-4" />
-              <span>Quick Log</span>
-            </Link>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {groupedLogs.map((slot) => {
-              const SlotIcon = slot.icon;
-              return (
-                <div
-                  key={slot.key}
-                  className="flex flex-col justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs"
-                >
-                  <div>
-                    <div className="flex items-center justify-between border-b border-[var(--line)]/60 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="grid size-9 place-items-center rounded-xl bg-[var(--surface-muted)] text-[var(--leaf)]">
-                          <SlotIcon className="size-4" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-[var(--foreground)]">{slot.label}</h3>
-                          <p className="text-[11px] text-[var(--ink-muted)]">
-                            {slot.items.length} {slot.items.length === 1 ? "item" : "items"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="tabular-nums text-sm font-extrabold text-[var(--foreground)]">
-                          {Math.round(slot.subtotal)} kcal
-                        </span>
-                        <Link
-                          href={`/log?tab=search&meal=${slot.key}`}
-                          aria-label={`Log ${slot.label}`}
-                          className="active-press grid size-11 place-items-center rounded-xl border border-[var(--border-control)] text-[var(--leaf)] transition-colors hover:border-[var(--leaf)] hover:bg-[var(--leaf-light)]"
-                        >
-                          <IconPlus className="size-4" />
-                        </Link>
-                      </div>
-                    </div>
-
-                    {slot.items.length > 0 ? (
-                      <div className="mt-2 divide-y divide-[var(--line)]/40">
-                        {slot.items.map((log) => (
-                          <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="mt-3 flex items-center justify-between rounded-xl border border-dashed border-[var(--line)] bg-[var(--surface-muted)]/50 px-3 py-2 text-xs text-[var(--ink-muted)]">
-                        <span>No {slot.label.toLowerCase()} logged</span>
-                        <Link
-                          href={`/log?tab=search&meal=${slot.key}`}
-                          className="inline-flex min-h-11 items-center gap-1 px-2 font-semibold text-[var(--leaf)] hover:underline"
-                        >
-                          <IconPlus className="size-3.5" />
-                          <span>Add</span>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
+            {otherItems.length > 0 && (
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ink-muted)]">Other Logged Foods</h3>
+                <div className="divide-y divide-[var(--line)]/40">
+                  {otherItems.map((log) => (
+                    <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-
-          {otherItems.length > 0 && (
-            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs">
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ink-muted)]">Other Logged Foods</h3>
-              <div className="divide-y divide-[var(--line)]/40">
-                {otherItems.map((log) => (
-                  <FoodLogRow key={log.id} log={log} onChanged={() => setRefreshKey((key) => key + 1)} />
-                ))}
               </div>
-            </div>
-          )}
-        </section>
+            )}
+          </section>
 
-        {/* 4. Secondary Right Column: Streak Calendar & AI Suggestions */}
-        <div className="order-4 space-y-6 lg:order-none lg:col-span-5">
-          <StreakCalendar currentStreak={data.streak?.current_streak ?? 0} />
-          <SuggestionsCard />
+          {/* 4. Secondary/Tertiary Right Rail: Compact Streak, Meal Ideas, Achievements */}
+          <aside aria-label="Consistency, meal ideas, and achievements" className="space-y-3 lg:col-span-5">
+            <StreakCalendar currentStreak={data.streak?.current_streak ?? 0} />
+            <SuggestionsCard />
+            <Badges />
+          </aside>
         </div>
       </div>
 

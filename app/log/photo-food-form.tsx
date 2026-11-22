@@ -6,7 +6,7 @@ import { computeNutrients } from "@/lib/food";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import { defaultMealTypeByHour, MEAL_SLOTS, normalizeMealSlot, type MealSlot } from "@/lib/meal-slot";
 import type { AiPhotoEstimate } from "@/lib/types";
-import { IconCamera, IconUpload, IconX } from "@/components/icons";
+import { IconCamera, IconChevronRight, IconUpload, IconX } from "@/components/icons";
 
 type EditablePhotoItem = AiPhotoEstimate & {
   id: string;
@@ -107,7 +107,7 @@ export default function PhotoFoodForm({ initialMealType }: { initialMealType?: s
           setError("Sign in to analyze meal photos.");
           return;
         }
-        setError(payload.error?.message ?? "Photo analysis is unavailable. Use Search or Text AI instead.");
+        setError(payload.error?.message ?? "Photo analysis is unavailable. Use Search & Custom instead.");
         return;
       }
       if (!payload.items?.length) {
@@ -329,9 +329,6 @@ export default function PhotoFoodForm({ initialMealType }: { initialMealType?: s
               <Link href="/log?tab=search" className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-control)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--foreground)]">
                 Search Database
               </Link>
-              <Link href="/log?tab=text" className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-control)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--foreground)]">
-                Try Text AI
-              </Link>
             </div>
           )}
         </div>
@@ -340,8 +337,9 @@ export default function PhotoFoodForm({ initialMealType }: { initialMealType?: s
       {status && (
         <div aria-live="polite" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--leaf)]/30 bg-[var(--leaf-light)] p-4 text-xs font-bold text-[var(--leaf-ink)]" role="status">
           <span>{status}</span>
-          <Link href="/dashboard" className="underline underline-offset-2 hover:opacity-80">
-            View Dashboard →
+          <Link href="/dashboard" className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:opacity-80">
+            <span>View Dashboard</span>
+            <IconChevronRight className="size-3.5" />
           </Link>
         </div>
       )}

@@ -16,9 +16,11 @@ describe("AI food analysis", () => {
     vi.restoreAllMocks();
   });
 
-  it("validates supported image types and the 10 MB limit", async () => {
-    const valid = await validateFoodImage(new File([new Uint8Array([1, 2, 3])], "meal.webp", { type: "image/webp" }));
+  it("validates supported image types, magic bytes, and the 10 MB limit", async () => {
+    const validWebpBytes = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x10, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+    const valid = await validateFoodImage(new File([validWebpBytes], "meal.webp", { type: "image/webp" }));
     expect(valid.mimeType).toBe("image/webp");
+    await expect(validateFoodImage(new File([new Uint8Array([1, 2, 3])], "spoof.webp", { type: "image/webp" }))).rejects.toThrow("Unsupported image type");
     await expect(validateFoodImage(new File(["text"], "meal.txt", { type: "text/plain" }))).rejects.toThrow("Unsupported image type");
   });
 

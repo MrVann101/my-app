@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { calculateTargets } from "@/lib/calculations";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
+import { ACTIVITY_LEVEL_OPTIONS } from "@/lib/onboarding-options";
 
 type ProfileForm = {
   weightKg: string;
@@ -260,12 +261,15 @@ export default function ProfileTools() {
             onChange={(event) => updateForm("activityLevel", event.target.value as ProfileForm["activityLevel"])}
             className="mt-2 h-11 w-full rounded-xl border border-[var(--border-control)] bg-[var(--background)] px-3 font-normal outline-none focus:border-[var(--leaf)]"
           >
-            <option value="sedentary">Sedentary</option>
-            <option value="light">Light (1–3 days/week)</option>
-            <option value="moderate">Moderate (3–5 days/week)</option>
-            <option value="active">Active (6–7 days/week)</option>
-            <option value="very_active">Very active</option>
+            {ACTIVITY_LEVEL_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label} ({opt.frequency})
+              </option>
+            ))}
           </select>
+          <p className="mt-1.5 text-xs leading-relaxed text-[var(--ink-muted)]">
+            {ACTIVITY_LEVEL_OPTIONS.find((opt) => opt.value === form.activityLevel)?.description}
+          </p>
         </div>
         <div>
           <label className="block text-sm font-semibold" htmlFor="stats-goal">Goal</label>

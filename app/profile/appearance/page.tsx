@@ -13,7 +13,7 @@ export default function AppearancePage() {
             <div>
               <h2 className="text-base font-bold text-[var(--foreground)]">Theme Mode</h2>
               <p className="mt-1 text-xs text-[var(--ink-muted)]">
-                Select your preferred interface color mode. Warm Nordic Dark is enabled by default.
+                Select your preferred interface color mode. Warm Nordic Light is enabled by default.
               </p>
             </div>
             <ThemeToggle />
@@ -23,15 +23,15 @@ export default function AppearancePage() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-muted)]">Active Design System</h3>
             <div className="grid gap-3 text-xs sm:grid-cols-2">
               <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-4">
-                <p className="font-bold text-[var(--leaf)]">Warm Nordic Dark</p>
+                <p className="font-bold text-[var(--leaf)]">Warm Nordic Light</p>
                 <p className="mt-1 text-[var(--ink-muted)]">
-                  Deep espresso charcoal surfaces with fresh herb-green accents and warm parchment text.
+                  Soft oat paper canvas with crisp dark ink and high-contrast botanical macro indicators.
                 </p>
               </div>
               <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-4">
-                <p className="font-bold text-[var(--foreground)]">Warm Nordic Light</p>
+                <p className="font-bold text-[var(--foreground)]">Warm Nordic Dark</p>
                 <p className="mt-1 text-[var(--ink-muted)]">
-                  Soft oat paper canvas with crisp dark ink and high-contrast botanical macro indicators.
+                  Deep espresso charcoal surfaces with fresh herb-green accents and warm parchment text.
                 </p>
               </div>
             </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconCheck, IconPlus, IconRefresh, IconSearch } from "@/components/icons";
+import { IconBitewiseLogo, IconCheck, IconChevronRight, IconPlus, IconRefresh, IconSearch } from "@/components/icons";
+import { isSafeMealPlanImageUrl } from "@/lib/image-security";
 import type { Recipe } from "@/lib/recipes";
 
 type Plan = {
@@ -90,11 +91,19 @@ export default function PublicPlans({
     setSavingId(id);
     try {
       const plan = plans.find((item) => item.id === id);
+      const validGoal =
+        plan?.goal === "lose" || plan?.goal === "maintain" || plan?.goal === "gain" ? plan.goal : null;
       const response = plan?.recipe
         ? await fetch("/api/meal-plans", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ visibility: "private", recipe: plan.recipe }),
+            body: JSON.stringify({
+              visibility: "private",
+              goal: validGoal,
+              dietType: plan.diet_type ?? null,
+              forkedFrom: id,
+              recipe: plan.recipe,
+            }),
           })
         : await fetch(`/api/meal-plans/${id}/fork`, { method: "POST" });
       const payload = await response.json();
@@ -187,9 +196,10 @@ export default function PublicPlans({
             <button
               type="button"
               onClick={onViewMyPlans}
-              className="min-h-9 underline underline-offset-2 hover:opacity-80"
+              className="inline-flex min-h-9 items-center gap-1 underline underline-offset-2 hover:opacity-80"
             >
-              View in My Plans →
+              <span>View in My Plans</span>
+              <IconChevronRight className="size-3.5" />
             </button>
           )}
         </div>
@@ -202,10 +212,15 @@ export default function PublicPlans({
       ) : (
         <div className="grid grid-cols-1 items-start gap-4 pt-1 lg:grid-cols-2">
           {filteredPlans.map((plan) => {
+            const isBitewiseTeam =
+              plan.creator_username === "Bitewise Team" ||
+              plan.creator_username?.toLowerCase() === "bitewise_team";
             let creatorAvatar: string | null = null;
-            try {
-              creatorAvatar = typeof window !== "undefined" ? localStorage.getItem(`bitewise_avatar_${plan.creator_username}`) : null;
-            } catch {}
+            if (!isBitewiseTeam) {
+              try {
+                creatorAvatar = typeof window !== "undefined" ? localStorage.getItem(`bitewise_avatar_${plan.creator_username}`) : null;
+              } catch {}
+            }
             const initials = getCreatorInitials(plan.creator_username || "");
             const nutrition = plan.recipe?.nutrition ?? {
               calories: Number(plan.total_calories),
@@ -214,20 +229,23 @@ export default function PublicPlans({
               fatG: plan.meal_plan_items.reduce((total, item) => total + Number(item.fat_g), 0),
             };
 
+            const safeImageUrl = isSafeMealPlanImageUrl(plan.recipe?.imageUrl) ? plan.recipe?.imageUrl : null;
+            const resolvedCover = safeImageUrl ?? coverImages[plan.id] ?? null;
+
             return (
               <div
                 className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs transition-shadow hover:shadow-sm sm:p-5"
                 key={plan.id}
               >
-                {(plan.recipe?.imageUrl || coverImages[plan.id]) && (
-                  <div className="-mx-4 -mt-4 mb-4 overflow-hidden border-b border-[var(--line)] sm:-mx-5 sm:-mt-5">
+                {resolvedCover && (
+                  <div className="-mx-4 -mt-4 mb-4 h-44 overflow-hidden border-b border-[var(--line)] sm:-mx-5 sm:-mt-5 sm:h-48">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={plan.recipe?.imageUrl ?? coverImages[plan.id]}
+                      src={resolvedCover}
                       alt={plan.name}
                       loading="lazy"
                       decoding="async"
-                      className="h-36 w-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   </div>
                 )}
@@ -237,21 +255,35 @@ export default function PublicPlans({
                   {plan.recipe && <p className="mt-1 line-clamp-2 text-sm text-[var(--ink-muted)]">{plan.recipe.description}</p>}
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-muted)]">
                     <div className="inline-flex items-center gap-1.5">
-                      {creatorAvatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={creatorAvatar}
-                          alt={plan.creator_username}
-                          loading="lazy"
-                          decoding="async"
-                          className="size-6 rounded-full border border-[var(--line)] object-cover"
-                        />
+                      {isBitewiseTeam ? (
+                        <>
+                          <IconBitewiseLogo className="size-6 shrink-0" />
+                          <span>
+                            By <strong className="text-[var(--foreground)]">Bitewise Team</strong>
+                          </span>
+                          <span className="rounded-full bg-[var(--leaf-light)] px-2 py-0.5 text-[10px] font-bold text-[var(--leaf-ink)]">
+                            Official
+                          </span>
+                        </>
                       ) : (
-                        <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--leaf)] text-[10px] font-black text-[var(--on-leaf)]">
-                          {initials}
-                        </div>
+                        <>
+                          {creatorAvatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={creatorAvatar}
+                              alt={plan.creator_username}
+                              loading="lazy"
+                              decoding="async"
+                              className="size-6 rounded-full border border-[var(--line)] object-cover"
+                            />
+                          ) : (
+                            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--leaf)] text-[10px] font-black text-[var(--on-leaf)]">
+                              {initials}
+                            </div>
+                          )}
+                          <span>By <strong>@{plan.creator_username}</strong></span>
+                        </>
                       )}
-                      <span>By <strong>@{plan.creator_username}</strong></span>
                     </div>
                     {plan.recipe?.manual && (
                       <>

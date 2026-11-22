@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/app-shell";
-import { IconCheck, IconLog, IconSparkles } from "@/components/icons";
+import { IconCheck, IconChevronLeft, IconChevronRight, IconLog, IconSparkles } from "@/components/icons";
 import { getBrowserDate, getBrowserTimezone } from "@/lib/date";
 import { defaultMealTypeByHour } from "@/lib/meal-slot";
 
@@ -174,8 +174,9 @@ export default function SuggestionsPage() {
               <IconCheck className="size-4 shrink-0" />
               <span>{loggedStatus}</span>
             </span>
-            <Link href="/dashboard" className="underline underline-offset-2 hover:opacity-80">
-              View Dashboard →
+            <Link href="/dashboard" className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:opacity-80">
+              <span>View Dashboard</span>
+              <IconChevronRight className="size-3.5" />
             </Link>
           </div>
         )}
@@ -265,8 +266,9 @@ export default function SuggestionsPage() {
         )}
 
         <div className="pt-4 text-center">
-          <Link href="/dashboard" className="inline-flex min-h-11 items-center px-3 text-xs font-bold text-[var(--leaf)] hover:underline">
-            ← Return to Dashboard
+          <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-1 px-3 text-xs font-bold text-[var(--leaf)] hover:underline">
+            <IconChevronLeft className="size-3.5" />
+            <span>Return to Dashboard</span>
           </Link>
         </div>
       </div>

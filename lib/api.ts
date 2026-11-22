@@ -33,6 +33,14 @@ export function apiErrorResponse(error: unknown): NextResponse {
     );
   }
 
+  console.error(
+    JSON.stringify({
+      level: "error",
+      message: "unhandled_api_error",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+
   return NextResponse.json(
     { error: { code: "internal_error", message: "Something went wrong." } },
     { status: 500 },

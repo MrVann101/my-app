@@ -1,6 +1,7 @@
 import { searchOpenFoodFacts, searchUsda, type FoodSearchResult } from "@/lib/food-providers";
 
 const cacheTtlMs = 5 * 60 * 1000;
+const maxCacheEntries = 500;
 const searchCache = new Map<string, { expiresAt: number; value: { results: FoodSearchResult[]; providerUsed: "usda" | "off" | "none" } }>();
 
 export class FoodSearchError extends Error {
@@ -59,6 +60,16 @@ export async function searchFoods(query: string): Promise<{ results: FoodSearchR
 }
 
 function cacheResult(cacheKey: string, value: { results: FoodSearchResult[]; providerUsed: "usda" | "off" | "none" }) {
-  searchCache.set(cacheKey, { expiresAt: Date.now() + cacheTtlMs, value });
+  const now = Date.now();
+  if (searchCache.size >= maxCacheEntries) {
+    for (const [key, entry] of searchCache.entries()) {
+      if (entry.expiresAt <= now) searchCache.delete(key);
+    }
+    if (searchCache.size >= maxCacheEntries) {
+      const oldestKey = searchCache.keys().next().value;
+      if (oldestKey) searchCache.delete(oldestKey);
+    }
+  }
+  searchCache.set(cacheKey, { expiresAt: now + cacheTtlMs, value });
   return value;
 }
