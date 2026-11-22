@@ -13,16 +13,21 @@ function resolveSupabaseOrigin(): { origin: string; hostname: string } | null {
 }
 
 const supabaseHost = resolveSupabaseOrigin();
+const isDev = process.env.NODE_ENV !== "production";
 
 function buildCsp(): string {
   const supabaseOrigin = supabaseHost?.origin ?? "https://*.supabase.co";
   const directives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+      : "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: ${supabaseOrigin}`,
     "font-src 'self' data:",
-    `connect-src 'self' ${supabaseOrigin}`,
+    isDev
+      ? `connect-src 'self' ws: wss: ${supabaseOrigin}`
+      : `connect-src 'self' ${supabaseOrigin}`,
     "media-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
