@@ -14,9 +14,9 @@ import {
   AnimatePresence,
   motion,
   useMotionValue,
-  useReducedMotion,
   useSpring,
 } from "motion/react";
+import { useHydratedReducedMotion } from "@/lib/use-reduced-motion";
 import { IconSparkles } from "./icons";
 
 export type MascotMood = "idle" | "encouraging" | "celebrating" | "attentive";
@@ -42,15 +42,15 @@ export function useSetAuthMascotMood() {
 
 export function AmbientAuthWash() {
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="absolute -left-24 top-1/4 size-[28rem] rounded-full bg-[radial-gradient(circle,var(--leaf-light)_0%,transparent_70%)] opacity-70 dark:opacity-30" />
-      <div className="absolute -right-24 bottom-12 size-[24rem] rounded-full bg-[radial-gradient(circle,var(--sky-soft)_0%,transparent_70%)] opacity-55 dark:opacity-20" />
-    </div>
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden before:pointer-events-none before:absolute before:-left-24 before:top-1/4 before:size-[28rem] before:rounded-full before:bg-[radial-gradient(circle,var(--leaf-light)_0%,transparent_70%)] before:opacity-70 before:content-[''] after:pointer-events-none after:absolute after:-right-24 after:bottom-12 after:size-[24rem] after:rounded-full after:bg-[radial-gradient(circle,var(--sky-soft)_0%,transparent_70%)] after:opacity-55 after:content-[''] dark:before:opacity-30 dark:after:opacity-20"
+    />
   );
 }
 
 export function AuthCardMotion({ children }: { children: ReactNode }) {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
 
   return (
     <motion.div
@@ -145,7 +145,7 @@ export function InteractiveMascot({
   variant?: MascotStageVariant;
 }) {
   const mood = useContext(AuthMascotStateContext);
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
 
   const [clickCount, setClickCount] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);

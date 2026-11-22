@@ -24,6 +24,7 @@ export default function NotificationPreferences() {
   const [frequency, setFrequency] = useState("daily");
   const [reminderTime, setReminderTime] = useState("19:00");
   const [timezone, setTimezone] = useState("UTC");
+  const [browserTimezone, setBrowserTimezone] = useState("UTC");
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +33,7 @@ export default function NotificationPreferences() {
     let active = true;
     const timer = window.setTimeout(() => {
       const browserTz = getBrowserTimezone();
+      if (active) setBrowserTimezone(browserTz);
       fetch("/api/notifications/preferences")
         .then((response) => response.json())
         .then((payload) => {
@@ -57,9 +59,8 @@ export default function NotificationPreferences() {
   }, []);
 
   const timezoneOptions = useMemo(() => {
-    const browserTz = typeof window !== "undefined" ? getBrowserTimezone() : "UTC";
-    return Array.from(new Set([timezone, browserTz, ...COMMON_TIMEZONES].filter(Boolean)));
-  }, [timezone]);
+    return Array.from(new Set([timezone, browserTimezone, ...COMMON_TIMEZONES].filter(Boolean)));
+  }, [timezone, browserTimezone]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

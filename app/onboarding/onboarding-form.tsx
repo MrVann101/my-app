@@ -7,7 +7,6 @@ import {
   LayoutGroup,
   motion,
   useMotionValue,
-  useReducedMotion,
   useSpring,
   useTransform,
 } from "motion/react";
@@ -17,11 +16,12 @@ import { calculateTargets } from "@/lib/calculations";
 import { getBrowserDate } from "@/lib/date";
 import { ACTIVITY_LEVEL_OPTIONS, GOAL_OPTIONS } from "@/lib/onboarding-options";
 import type { ActivityLevel, Goal, Sex } from "@/lib/types";
+import { useHydratedReducedMotion } from "@/lib/use-reduced-motion";
 
 const STRONG_EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
 function AnimatedNumber({ value }: { value: number }) {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
   const mv = useMotionValue(value);
   const spring = useSpring(mv, { stiffness: 260, damping: 30, mass: 0.6 });
   const formatted = useTransform(spring, (latest) => Math.round(latest).toLocaleString());
@@ -45,7 +45,7 @@ function AnimatedNumber({ value }: { value: number }) {
 
 export default function OnboardingForm() {
   const router = useRouter();
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
   const setMascotMood = useSetAuthMascotMood();
 
   const [weightKg, setWeightKg] = useState("");

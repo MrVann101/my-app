@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useSetAuthMascotMood, type MascotMood } from "@/components/auth-mascot-stage";
 import { IconCheck, IconEye, IconEyeOff } from "@/components/icons";
+import { useHydratedReducedMotion } from "@/lib/use-reduced-motion";
 
 const USERNAME_REGEX = /^[A-Za-z0-9_]{2,30}$/;
 
 export default function SignupForm() {
   const router = useRouter();
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
   const setMascotMood = useSetAuthMascotMood();
 
   const [username, setUsername] = useState("");

@@ -1,12 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import {
   IconCheck,
   IconMessagePlus,
   IconStar,
 } from "@/components/icons";
+import { useHydratedReducedMotion } from "@/lib/use-reduced-motion";
 import {
   FOCUS_AREA_OPTIONS,
   LOGGING_EASE_OPTIONS,
@@ -71,7 +72,7 @@ function StatusBadge({ status }: { status: FeedbackStatus }) {
 }
 
 export default function FeedbackClient() {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
 
   const [senderName, setSenderName] = useState("");
   const [overallRating, setOverallRating] = useState<number>(5);
