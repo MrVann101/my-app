@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveIsAdmin } from "@/lib/admin-auth";
 import { isAuthorizedCronRequest } from "@/lib/cron";
+import { sendDeletionConfirmation } from "@/lib/email";
+import { getResendApiKey, getServerEnv, getSupabaseAdminEnv } from "@/lib/env";
 import {
   detectImageMimeFromBytes,
   escapeIlike,
@@ -124,5 +126,35 @@ describe("constant-time cron authorization (LOW-02)", () => {
       headers: { authorization: "Bearer wrong-token" },
     });
     expect(isAuthorizedCronRequest(wrong)).toBe(false);
+  });
+});
+
+describe("optional Resend configuration", () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    vi.restoreAllMocks();
+  });
+
+  it("allows admin and server env loading and skips email delivery when RESEND_API_KEY is unset", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://proj123.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    process.env.GEMINI_API_KEY = "gemini-key";
+    process.env.GROQ_API_KEY = "groq-key";
+    process.env.USDA_API_KEY = "usda-key";
+    delete process.env.RESEND_API_KEY;
+
+    expect(getResendApiKey()).toBeNull();
+    expect(getSupabaseAdminEnv()).toEqual({
+      supabaseUrl: "https://proj123.supabase.co",
+      supabaseServiceRoleKey: "service-key",
+    });
+    expect(getServerEnv().resendApiKey).toBeUndefined();
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    await expect(sendDeletionConfirmation("user@example.com", "2026-12-01")).resolves.toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

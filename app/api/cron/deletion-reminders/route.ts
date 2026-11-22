@@ -36,8 +36,8 @@ export async function GET(request: Request) {
         const email = user.data.user?.email;
         if (email && !isInternalAuthEmail(email)) {
           try {
-            await sendDeletionReminder(email, deletionDate);
-            sent += 1;
+            const delivered = await sendDeletionReminder(email, deletionDate);
+            if (delivered) sent += 1;
           } catch {
             failed += 1;
           }

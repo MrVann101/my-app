@@ -90,12 +90,11 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong className="font-semibold text-[var(--foreground)]">
-              Supabase, Vercel &amp; Resend:
+              Supabase &amp; Vercel:
             </strong>{" "}
             Supabase hosts authentication, Row-Level Security (RLS) Postgres
             tables, and image buckets. Vercel hosts the web application and runs
-            scheduled cleanup jobs. Resend delivers account-deletion notices only
-            if an account has a deliverable email address on file.
+            scheduled cleanup jobs.
           </li>
         </ul>
       </section>

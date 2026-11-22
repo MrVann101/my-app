@@ -3,12 +3,17 @@ type PublicEnv = {
   supabaseAnonKey: string;
 };
 
+type SupabaseAdminEnv = {
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+};
+
 type ServerEnv = PublicEnv & {
   supabaseServiceRoleKey: string;
   geminiApiKey: string;
   groqApiKey: string;
   usdaApiKey: string;
-  resendApiKey: string;
+  resendApiKey?: string;
 };
 
 function requireValue(name: string): string {
@@ -19,6 +24,11 @@ function requireValue(name: string): string {
   }
 
   return value;
+}
+
+function optionalValue(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
 }
 
 function requirePublicValue(name: string, value: string | undefined): string {
@@ -45,6 +55,21 @@ export function getPublicEnv(): PublicEnv {
   };
 }
 
+export function getSupabaseAdminEnv(): SupabaseAdminEnv {
+  const supabaseUrl = requirePublicValue("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+  try {
+    new URL(supabaseUrl);
+  } catch {
+    throw new Error("Environment variable NEXT_PUBLIC_SUPABASE_URL must be a valid URL");
+  }
+
+  return {
+    supabaseUrl,
+    supabaseServiceRoleKey: requireValue("SUPABASE_SERVICE_ROLE_KEY"),
+  };
+}
+
 export function getServerEnv(): ServerEnv {
   return {
     ...getPublicEnv(),
@@ -52,7 +77,7 @@ export function getServerEnv(): ServerEnv {
     geminiApiKey: requireValue("GEMINI_API_KEY"),
     groqApiKey: requireValue("GROQ_API_KEY"),
     usdaApiKey: requireValue("USDA_API_KEY"),
-    resendApiKey: requireValue("RESEND_API_KEY"),
+    resendApiKey: optionalValue("RESEND_API_KEY"),
   };
 }
 
@@ -68,6 +93,6 @@ export function getGroqApiKey(): string {
   return requireValue("GROQ_API_KEY");
 }
 
-export function getResendApiKey(): string {
-  return requireValue("RESEND_API_KEY");
+export function getResendApiKey(): string | null {
+  return optionalValue("RESEND_API_KEY") ?? null;
 }
